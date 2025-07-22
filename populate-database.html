@@ -1,1 +1,2315 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Popola Database - Il Barrino da Mario</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #8B4513;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .import-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .import-section.active {
+            border-color: #8B4513;
+            background: #faf7f0;
+        }
+        .btn {
+            background: #8B4513;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .btn:hover {
+            background: #5D2F0A;
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .progress {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 6px;
+            display: none;
+        }
+        .progress.show {
+            display: block;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+            display: none;
+        }
+        .log.show {
+            display: block;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            display: none;
+        }
+        .success.show {
+            display: block;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            display: none;
+        }
+        .error.show {
+            display: block;
+        }
+        .file-input {
+            margin: 10px 0;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #8B4513;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Popola Database - Il Barrino da Mario</h1>
+        
+        <div class="import-section" id="import-section">
+            <h2>📥 Importa Dati dal JSON</h2>
+            <p>Carica il file JSON con tutti i dati del menu per popolare il database.</p>
+            
+            <div class="file-input">
+                <input type="file" id="json-file" accept=".json" />
+            </div>
+            
+            <button class="btn" id="import-btn" disabled>Importa Database</button>
+            <button class="btn" id="auto-import-btn">Importa Dati Automaticamente</button>
+        </div>
 
+        <div class="progress" id="progress">
+            <h3>⏳ Importazione in corso...</h3>
+            <p id="progress-text">Inizializzazione...</p>
+        </div>
+
+        <div class="success" id="success">
+            <h3>✅ Importazione Completata!</h3>
+            <p>Il database è stato popolato con successo con tutti i dati del menu.</p>
+            <div class="stats" id="stats"></div>
+            <a href="index.html" class="btn">Vai al Menu</a>
+            <a href="admin.html" class="btn">Pannello Admin</a>
+        </div>
+
+        <div class="error" id="error">
+            <h3>❌ Errore durante l'importazione</h3>
+            <p id="error-text"></p>
+            <button class="btn" id="retry-btn">Riprova</button>
+        </div>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    
+    <!-- App Scripts -->
+    <script type="module" src="src/js/firebase.js"></script>
+    <script type="module" src="src/js/database-importer.js"></script>
+    
+    <script type="module">
+        import DatabaseImporter from './src/js/database-importer.js';
+        
+        // Dati JSON incorporati (dal tuo file)
+        const EMBEDDED_JSON_DATA = {
+  "metadata": {
+    "exportDate": "2025-07-22T13:37:21.308Z",
+    "exportedBy": "Il Barrino da Mario Admin",
+    "format": "structured",
+    "version": "1.0"
+  },
+  "database": {
+    "products": [
+      {
+        "id": "acqua_frizzante_1500ml",
+        "allergens": [],
+        "price": 3,
+        "category": "bevande_fredde",
+        "visible": true,
+        "tags": [],
+        "translations": {
+          "ja": {
+            "name": "",
+            "description": ""
+          },
+          "es": {
+            "name": "",
+            "description": ""
+          },
+          "ar": {
+            "description": "",
+            "name": ""
+          },
+          "ru": {
+            "description": "",
+            "name": ""
+          },
+          "pt": {
+            "name": "",
+            "description": ""
+          },
+          "it": {
+            "description": "Bottiglia 1,5L",
+            "name": "Acqua Frizzante 1500ml"
+          },
+          "fr": {
+            "description": "",
+            "name": ""
+          },
+          "zh": {
+            "description": "",
+            "name": ""
+          },
+          "de": {
+            "name": "",
+            "description": ""
+          },
+          "en": {
+            "name": "",
+            "description": ""
+          }
+        }
+      },
+      {
+        "id": "acqua_frizzante_500ml",
+        "allergens": [],
+        "tags": [],
+        "visible": true,
+        "price": 1.5,
+        "category": "bevande_fredde",
+        "translations": {
+          "it": {
+            "name": "Acqua Frizzante 500ml",
+            "description": "Bottiglia 500ml"
+          }
+        }
+      },
+      {
+        "id": "acqua_naturale_1500ml",
+        "allergens": [],
+        "translations": {
+          "it": {
+            "name": "Acqua Naturale 1500ml",
+            "description": "Bottiglia 1,5L"
+          }
+        },
+        "visible": true,
+        "category": "bevande_fredde",
+        "price": 3,
+        "tags": []
+      },
+      {
+        "id": "acqua_naturale_500ml",
+        "allergens": [],
+        "tags": [],
+        "price": 1.5,
+        "translations": {
+          "it": {
+            "description": "Bottiglia 500ml",
+            "name": "Acqua Naturale 500ml"
+          }
+        },
+        "visible": true,
+        "category": "bevande_fredde"
+      },
+      {
+        "id": "amaro",
+        "category": "aperitivi",
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Amaro",
+            "description": "Digestivo amaro"
+          }
+        },
+        "visible": true,
+        "price": 4,
+        "allergens": [
+          "alcol"
+        ]
+      },
+      {
+        "id": "americano_ghiaccio",
+        "translations": {
+          "it": {
+            "name": "Americano con Ghiaccio",
+            "description": "Caffè americano freddo"
+          }
+        },
+        "allergens": [],
+        "visible": true,
+        "tags": [],
+        "price": 4.5,
+        "category": "bevande_fredde"
+      },
+      {
+        "id": "bitter_100ml",
+        "allergens": [
+          "solfiti"
+        ],
+        "price": 3,
+        "visible": true,
+        "tags": [],
+        "translations": {
+          "it": {
+            "description": "Aperitivo",
+            "name": "Bitter 100ml"
+          }
+        },
+        "category": "aperitivi"
+      },
+      {
+        "id": "brioches",
+        "category": "dolci",
+        "price": 2,
+        "visible": true,
+        "translations": {
+          "it": {
+            "name": "Brioches",
+            "description": "Brioche classica"
+          }
+        },
+        "allergens": [
+          "glutine",
+          "latte",
+          "uova"
+        ],
+        "tags": []
+      },
+      {
+        "id": "caffe_americano",
+        "price": 3.5,
+        "translations": {
+          "it": {
+            "description": "Caffè lungo americano",
+            "name": "Caffè Americano"
+          }
+        },
+        "allergens": [],
+        "tags": [],
+        "category": "caffetteria",
+        "visible": true
+      },
+      {
+        "id": "caffe_corretto",
+        "allergens": [
+          "alcol"
+        ],
+        "price": 2,
+        "tags": [],
+        "visible": true,
+        "category": "caffetteria",
+        "translations": {
+          "it": {
+            "name": "Caffè Corretto",
+            "description": "Caffè con liquore"
+          }
+        }
+      },
+      {
+        "id": "caffe_espresso",
+        "allergens": [],
+        "category": "caffetteria",
+        "translations": {
+          "it": {
+            "name": "Caffè Espresso",
+            "description": "Caffè espresso italiano"
+          }
+        },
+        "visible": true,
+        "price": 1.5,
+        "tags": []
+      },
+      {
+        "id": "caffe_espresso_decaffeinato",
+        "tags": [],
+        "category": "caffetteria",
+        "translations": {
+          "it": {
+            "name": "Caffè Espresso Decaffeinato",
+            "description": "Caffè espresso senza caffeina"
+          }
+        },
+        "visible": true,
+        "price": 1.5,
+        "allergens": []
+      },
+      {
+        "id": "caffe_latte",
+        "tags": [],
+        "visible": true,
+        "category": "caffetteria",
+        "allergens": [],
+        "translations": {
+          "it": {
+            "name": "Caffè e Latte",
+            "description": "Disponibile con latte 🥛, senza lattosio, soia 🌿, riso"
+          }
+        },
+        "price": 4
+      },
+      {
+        "id": "caffe_latte_ghiaccio",
+        "visible": true,
+        "price": 4.5,
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Caffè Latte con Ghiaccio",
+            "description": "Disponibile con latte 🥛, senza lattosio, soia 🌿, riso"
+          }
+        },
+        "allergens": [],
+        "category": "bevande_fredde"
+      },
+      {
+        "id": "caffe_macchiato",
+        "price": 1.5,
+        "visible": true,
+        "allergens": [],
+        "translations": {
+          "it": {
+            "name": "Caffè Macchiato",
+            "description": "Disponibile con latte 🥛, senza lattosio, soia 🌿, riso"
+          }
+        },
+        "tags": [],
+        "category": "caffetteria"
+      },
+      {
+        "id": "caffe_macchiatone",
+        "price": 1.8,
+        "allergens": [],
+        "visible": true,
+        "translations": {
+          "it": {
+            "description": "Disponibile con latte 🥛, senza lattosio, soia 🌿, riso",
+            "name": "Caffè Macchiatone"
+          }
+        },
+        "category": "caffetteria",
+        "tags": []
+      },
+      {
+        "id": "caffe_shakerato",
+        "allergens": [],
+        "visible": true,
+        "price": 5,
+        "translations": {
+          "it": {
+            "description": "Caffè freddo shakerato",
+            "name": "Caffè Shakerato"
+          }
+        },
+        "category": "bevande_fredde",
+        "tags": []
+      },
+      {
+        "id": "campari_soda_100ml",
+        "category": "aperitivi",
+        "translations": {
+          "it": {
+            "description": "Aperitivo alcolico",
+            "name": "Campari Soda 100ml"
+          }
+        },
+        "price": 3,
+        "visible": true,
+        "tags": [],
+        "allergens": [
+          "solfiti",
+          "alcol"
+        ]
+      },
+      {
+        "id": "cantuccino_nutella",
+        "category": "dolci",
+        "allergens": [
+          "glutine",
+          "latte",
+          "uova",
+          "frutta_guscio"
+        ],
+        "price": 2.5,
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Cantuccino alla Nutella",
+            "description": "Cantuccino ripieno di Nutella"
+          }
+        },
+        "visible": true
+      },
+      {
+        "id": "cappuccino",
+        "price": 2.5,
+        "allergens": [],
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Cappuccino",
+            "description": "Disponibile con latte 🥛, senza lattosio, soia 🌿, riso"
+          }
+        },
+        "category": "caffetteria",
+        "visible": true
+      },
+      {
+        "id": "cappuccino_decaffeinato",
+        "category": "caffetteria",
+        "tags": [],
+        "price": 2.5,
+        "visible": true,
+        "translations": {
+          "it": {
+            "name": "Cappuccino Decaffeinato",
+            "description": "Disponibile con latte 🥛, senza lattosio, soia 🌿, riso"
+          }
+        },
+        "allergens": []
+      },
+      {
+        "id": "cappuccino_orzo_ginseng",
+        "tags": [],
+        "visible": true,
+        "translations": {
+          "it": {
+            "name": "Cappuccino Orzo/Ginseng",
+            "description": "Disponibile con latte 🥛, senza lattosio, soia 🌿, riso"
+          }
+        },
+        "allergens": [
+          "glutine"
+        ],
+        "price": 2.5,
+        "category": "caffetteria"
+      },
+      {
+        "id": "caprese",
+        "translations": {
+          "it": {
+            "description": "Con pomodoro, mozzarella e rucola",
+            "name": "Caprese"
+          }
+        },
+        "allergens": [
+          "glutine",
+          "latte"
+        ],
+        "visible": true,
+        "category": "salato",
+        "price": 5,
+        "tags": [
+          "vegetariano",
+          "congelato"
+        ]
+      },
+      {
+        "id": "ciambellone",
+        "category": "dolci",
+        "translations": {
+          "it": {
+            "name": "Ciambellone",
+            "description": "Ciambellone classico"
+          }
+        },
+        "tags": [
+          "congelato"
+        ],
+        "allergens": [
+          "glutine",
+          "latte",
+          "uova"
+        ],
+        "visible": true,
+        "price": 2
+      },
+      {
+        "id": "cioccolata_calda",
+        "category": "bevande_calde",
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Cioccolata Calda",
+            "description": "Cioccolata calda cremosa"
+          }
+        },
+        "allergens": [
+          "latte"
+        ],
+        "price": 3.5,
+        "visible": true
+      },
+      {
+        "id": "coca_cola_200ml",
+        "category": "bevande_fredde",
+        "visible": true,
+        "tags": [],
+        "allergens": [],
+        "translations": {
+          "it": {
+            "name": "Coca Cola 200ml",
+            "description": "Bottiglia vetro 200ml"
+          }
+        },
+        "price": 3
+      },
+      {
+        "id": "coca_cola_450ml",
+        "price": 3.5,
+        "translations": {
+          "it": {
+            "name": "Coca Cola 450ml",
+            "description": "Bottiglia PET 450ml"
+          }
+        },
+        "tags": [],
+        "allergens": [],
+        "category": "bevande_fredde",
+        "visible": true
+      },
+      {
+        "id": "coca_cola_zero_450ml",
+        "price": 3.5,
+        "category": "bevande_fredde",
+        "tags": [],
+        "allergens": [],
+        "visible": true,
+        "translations": {
+          "it": {
+            "description": "Bottiglia PET 450ml",
+            "name": "Coca Cola Zero 450ml"
+          }
+        }
+      },
+      {
+        "id": "corona_330ml",
+        "tags": [],
+        "allergens": [
+          "glutine",
+          "alcol"
+        ],
+        "price": 4,
+        "category": "birre",
+        "translations": {
+          "it": {
+            "name": "Corona 330ml",
+            "description": "Birra bottiglia 330ml"
+          }
+        },
+        "visible": true
+      },
+      {
+        "id": "cotoletta_pollo",
+        "allergens": [
+          "glutine",
+          "uova"
+        ],
+        "translations": {
+          "it": {
+            "name": "Cotoletta di Pollo",
+            "description": "Con cotoletta e insalata"
+          }
+        },
+        "price": 6,
+        "visible": true,
+        "category": "salato",
+        "tags": [
+          "pollo",
+          "congelato"
+        ]
+      },
+      {
+        "id": "crodino_100ml",
+        "tags": [],
+        "visible": true,
+        "price": 3,
+        "allergens": [],
+        "translations": {
+          "it": {
+            "name": "Crodino 100ml",
+            "description": "Aperitivo analcolico"
+          }
+        },
+        "category": "aperitivi"
+      },
+      {
+        "id": "donut",
+        "category": "dolci",
+        "allergens": [
+          "glutine",
+          "latte",
+          "uova"
+        ],
+        "tags": [
+          "congelato"
+        ],
+        "translations": {
+          "it": {
+            "name": "Donut",
+            "description": "Ciambella americana"
+          }
+        },
+        "visible": true,
+        "price": 2.5
+      },
+      {
+        "id": "fanta_450ml",
+        "tags": [],
+        "category": "bevande_fredde",
+        "allergens": [],
+        "translations": {
+          "it": {
+            "name": "Fanta 450ml",
+            "description": "Bottiglia PET 450ml"
+          }
+        },
+        "price": 3.5,
+        "visible": true
+      },
+      {
+        "id": "focaccia",
+        "visible": true,
+        "category": "salato",
+        "allergens": [
+          "glutine",
+          "latte"
+        ],
+        "price": 5,
+        "tags": [
+          "maiale",
+          "congelato"
+        ],
+        "translations": {
+          "it": {
+            "description": "Con prosciutto e fontina",
+            "name": "Focaccia"
+          }
+        }
+      },
+      {
+        "id": "focaccia_toscana",
+        "allergens": [
+          "glutine",
+          "latte"
+        ],
+        "visible": true,
+        "tags": [
+          "vegetariano",
+          "congelato"
+        ],
+        "category": "salato",
+        "translations": {
+          "it": {
+            "name": "Focaccia Toscana",
+            "description": "Con spinaci, scamorza affumicata e pepe"
+          }
+        },
+        "price": 5
+      },
+      {
+        "id": "heineken_330ml",
+        "visible": true,
+        "allergens": [
+          "glutine",
+          "alcol"
+        ],
+        "translations": {
+          "it": {
+            "description": "Birra bottiglia 330ml",
+            "name": "Heineken 330ml"
+          }
+        },
+        "tags": [],
+        "price": 4,
+        "category": "birre"
+      },
+      {
+        "id": "hot_dog",
+        "allergens": [
+          "glutine"
+        ],
+        "tags": [
+          "maiale"
+        ],
+        "price": 4.5,
+        "category": "salato",
+        "translations": {
+          "it": {
+            "description": "Con würstel",
+            "name": "Hot Dog"
+          }
+        },
+        "visible": true
+      },
+      {
+        "id": "lemon_soda_200ml",
+        "category": "bevande_fredde",
+        "allergens": [],
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Lemon Soda 200ml",
+            "description": "Bottiglia vetro 200ml"
+          }
+        },
+        "price": 3,
+        "visible": true
+      },
+      {
+        "id": "marble_cake",
+        "category": "dolci",
+        "tags": [
+          "congelato"
+        ],
+        "visible": true,
+        "price": 2,
+        "allergens": [
+          "glutine",
+          "latte",
+          "uova"
+        ],
+        "translations": {
+          "it": {
+            "description": "Torta marmorizzata",
+            "name": "Marble Cake"
+          }
+        }
+      },
+      {
+        "id": "maxi_toast",
+        "price": 4.5,
+        "translations": {
+          "it": {
+            "description": "Con verdure grigliate e formaggio",
+            "name": "Maxi Toast"
+          }
+        },
+        "category": "salato",
+        "allergens": [
+          "glutine",
+          "latte"
+        ],
+        "visible": true,
+        "tags": [
+          "vegetariano"
+        ]
+      },
+      {
+        "id": "menabrea_ambrata_330ml",
+        "price": 4,
+        "visible": true,
+        "category": "birre",
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Menabrea Ambrata 330ml",
+            "description": "Birra bottiglia 330ml"
+          }
+        },
+        "allergens": [
+          "glutine",
+          "alcol"
+        ]
+      },
+      {
+        "id": "moretti_330ml",
+        "tags": [],
+        "price": 4,
+        "allergens": [
+          "glutine",
+          "alcol"
+        ],
+        "category": "birre",
+        "visible": true,
+        "translations": {
+          "it": {
+            "name": "Moretti 330ml",
+            "description": "Birra bottiglia 330ml"
+          }
+        }
+      },
+      {
+        "id": "moretti_660ml",
+        "tags": [],
+        "allergens": [
+          "glutine",
+          "alcol"
+        ],
+        "visible": true,
+        "translations": {
+          "it": {
+            "name": "Moretti 660ml",
+            "description": "Birra bottiglia 660ml"
+          }
+        },
+        "category": "birre",
+        "price": 6
+      },
+      {
+        "id": "muffin",
+        "translations": {
+          "it": {
+            "description": "Muffin dolce",
+            "name": "Muffin"
+          }
+        },
+        "tags": [
+          "congelato"
+        ],
+        "category": "dolci",
+        "allergens": [
+          "glutine",
+          "latte",
+          "uova"
+        ],
+        "visible": true,
+        "price": 3.5
+      },
+      {
+        "id": "orzo_ginseng",
+        "visible": true,
+        "price": 1.5,
+        "translations": {
+          "it": {
+            "description": "Bevanda calda all'orzo o ginseng",
+            "name": "Orzo, Ginseng"
+          }
+        },
+        "tags": [],
+        "category": "caffetteria",
+        "allergens": [
+          "glutine"
+        ]
+      },
+      {
+        "id": "panino_salame",
+        "translations": {
+          "it": {
+            "name": "Panino",
+            "description": "Con salame e fontina"
+          }
+        },
+        "price": 6,
+        "allergens": [
+          "glutine",
+          "latte"
+        ],
+        "category": "salato",
+        "visible": true,
+        "tags": [
+          "maiale",
+          "congelato"
+        ]
+      },
+      {
+        "id": "peroni_spina_200ml",
+        "translations": {
+          "it": {
+            "name": "Birra Peroni alla Spina 200ml",
+            "description": "Birra alla spina piccola"
+          }
+        },
+        "allergens": [
+          "glutine",
+          "alcol"
+        ],
+        "price": 3.5,
+        "category": "birre",
+        "tags": [],
+        "visible": true
+      },
+      {
+        "id": "peroni_spina_400ml",
+        "category": "birre",
+        "translations": {
+          "it": {
+            "name": "Birra Peroni alla Spina 400ml",
+            "description": "Birra alla spina media"
+          }
+        },
+        "allergens": [
+          "glutine",
+          "alcol"
+        ],
+        "price": 5,
+        "tags": [],
+        "visible": true
+      },
+      {
+        "id": "prosecco",
+        "category": "vini",
+        "translations": {
+          "it": {
+            "description": "Calice di prosecco",
+            "name": "Prosecco"
+          }
+        },
+        "tags": [],
+        "allergens": [
+          "solfiti",
+          "alcol"
+        ],
+        "visible": true,
+        "price": 4
+      },
+      {
+        "id": "redbull_330ml",
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Red Bull 330ml",
+            "description": "Lattina 330ml"
+          }
+        },
+        "visible": true,
+        "allergens": [],
+        "category": "bevande_fredde",
+        "price": 3
+      },
+      {
+        "id": "rustica",
+        "translations": {
+          "it": {
+            "description": "Con tacchino, pomodoro e insalata",
+            "name": "Rustica"
+          }
+        },
+        "price": 5,
+        "category": "salato",
+        "tags": [
+          "pollo",
+          "congelato"
+        ],
+        "allergens": [
+          "glutine"
+        ],
+        "visible": true
+      },
+      {
+        "id": "sfoglia_toscana",
+        "tags": [],
+        "allergens": [
+          "glutine",
+          "latte",
+          "uova"
+        ],
+        "category": "dolci",
+        "translations": {
+          "it": {
+            "name": "Sfoglia Toscana",
+            "description": "Dolce di pasta sfoglia toscano"
+          }
+        },
+        "visible": true,
+        "price": 2
+      },
+      {
+        "id": "sprite_450ml",
+        "visible": true,
+        "tags": [],
+        "allergens": [],
+        "price": 3.5,
+        "translations": {
+          "it": {
+            "description": "Bottiglia PET 450ml",
+            "name": "Sprite 450ml"
+          }
+        },
+        "category": "bevande_fredde"
+      },
+      {
+        "id": "spritz_aperol",
+        "visible": true,
+        "allergens": [
+          "solfiti",
+          "alcol"
+        ],
+        "price": 8,
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Spritz Aperol",
+            "description": "Con Aperol, Prosecco, tonica e arancia"
+          }
+        },
+        "category": "aperitivi"
+      },
+      {
+        "id": "spritz_campari",
+        "category": "aperitivi",
+        "tags": [],
+        "allergens": [
+          "solfiti",
+          "alcol"
+        ],
+        "visible": true,
+        "translations": {
+          "it": {
+            "description": "Con Campari, Prosecco, tonica e arancia",
+            "name": "Spritz Campari"
+          }
+        },
+        "price": 8
+      },
+      {
+        "id": "spritz_limoncello",
+        "tags": [],
+        "category": "aperitivi",
+        "allergens": [
+          "solfiti",
+          "alcol"
+        ],
+        "visible": true,
+        "price": 8,
+        "translations": {
+          "it": {
+            "name": "Spritz Limoncello",
+            "description": "Con Limoncello, Prosecco, tonica e limone"
+          }
+        }
+      },
+      {
+        "id": "spritz_venturo",
+        "category": "aperitivi",
+        "price": 8,
+        "visible": true,
+        "tags": [],
+        "translations": {
+          "it": {
+            "description": "Con Venturo, Prosecco, tonica, menta e limone",
+            "name": "Spritz Venturo"
+          }
+        },
+        "allergens": [
+          "solfiti",
+          "alcol"
+        ]
+      },
+      {
+        "id": "succo_ace_200ml",
+        "visible": true,
+        "category": "bevande_fredde",
+        "price": 3.5,
+        "translations": {
+          "it": {
+            "name": "Succo di Frutta YOGA ACE 200ml",
+            "description": "Bottiglia vetro 200ml"
+          }
+        },
+        "tags": [],
+        "allergens": []
+      },
+      {
+        "id": "succo_ananas_200ml",
+        "allergens": [],
+        "price": 3.5,
+        "visible": true,
+        "tags": [],
+        "translations": {
+          "it": {
+            "description": "Bottiglia vetro 200ml",
+            "name": "Succo di Frutta YOGA Ananas 200ml"
+          }
+        },
+        "category": "bevande_fredde"
+      },
+      {
+        "id": "succo_arancia_200ml",
+        "tags": [],
+        "translations": {
+          "it": {
+            "description": "Bottiglia vetro 200ml",
+            "name": "Succo di Frutta YOGA Arancia 200ml"
+          }
+        },
+        "allergens": [],
+        "price": 3.5,
+        "category": "bevande_fredde",
+        "visible": true
+      },
+      {
+        "id": "succo_mirtillo_200ml",
+        "tags": [],
+        "allergens": [],
+        "translations": {
+          "it": {
+            "name": "Succo di Frutta YOGA Mirtillo 200ml",
+            "description": "Bottiglia vetro 200ml"
+          }
+        },
+        "category": "bevande_fredde",
+        "price": 3.5,
+        "visible": true
+      },
+      {
+        "id": "succo_pera_200ml",
+        "price": 3.5,
+        "tags": [],
+        "visible": true,
+        "category": "bevande_fredde",
+        "translations": {
+          "it": {
+            "description": "Bottiglia vetro 200ml",
+            "name": "Succo di Frutta YOGA Pera 200ml"
+          }
+        },
+        "allergens": []
+      },
+      {
+        "id": "succo_pesca_200ml",
+        "price": 3.5,
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Succo di Frutta YOGA Pesca 200ml",
+            "description": "Bottiglia vetro 200ml"
+          }
+        },
+        "allergens": [],
+        "visible": true,
+        "category": "bevande_fredde"
+      },
+      {
+        "id": "tea_limone_450ml",
+        "visible": true,
+        "price": 3.5,
+        "translations": {
+          "it": {
+            "name": "Tè Limone 450ml",
+            "description": "Bottiglia PET 450ml"
+          }
+        },
+        "tags": [],
+        "allergens": [],
+        "category": "bevande_fredde"
+      },
+      {
+        "id": "tea_pesca_450ml",
+        "visible": true,
+        "translations": {
+          "it": {
+            "name": "Tè Pesca 450ml",
+            "description": "Bottiglia PET 450ml"
+          }
+        },
+        "tags": [],
+        "category": "bevande_fredde",
+        "price": 3.5,
+        "allergens": []
+      },
+      {
+        "id": "tennents_330ml",
+        "category": "birre",
+        "tags": [],
+        "allergens": [
+          "glutine",
+          "alcol"
+        ],
+        "translations": {
+          "it": {
+            "name": "Tennent's 330ml",
+            "description": "Birra bottiglia 330ml"
+          }
+        },
+        "price": 4,
+        "visible": true
+      },
+      {
+        "id": "the_tisana",
+        "allergens": [],
+        "translations": {
+          "it": {
+            "description": "Tè o tisana calda",
+            "name": "Tè / Tisana"
+          }
+        },
+        "tags": [],
+        "visible": true,
+        "price": 2.5,
+        "category": "bevande_calde"
+      },
+      {
+        "id": "toast",
+        "price": 3.5,
+        "allergens": [
+          "glutine",
+          "latte"
+        ],
+        "visible": true,
+        "tags": [
+          "maiale"
+        ],
+        "translations": {
+          "it": {
+            "name": "Toast",
+            "description": "Con prosciutto cotto e formaggio"
+          }
+        },
+        "category": "salato"
+      },
+      {
+        "id": "tonica_schweppes_200ml",
+        "price": 3,
+        "category": "bevande_fredde",
+        "translations": {
+          "it": {
+            "description": "Bottiglia vetro 200ml",
+            "name": "Tonica Schweppes 200ml"
+          }
+        },
+        "allergens": [],
+        "tags": [],
+        "visible": true
+      },
+      {
+        "id": "torta_cobischeri",
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Torta Co'bischeri",
+            "description": "Torta tipica pisana"
+          }
+        },
+        "allergens": [
+          "glutine",
+          "latte",
+          "uova",
+          "frutta_guscio",
+          "solfiti"
+        ],
+        "visible": true,
+        "category": "dolci",
+        "price": 5
+      },
+      {
+        "id": "tortina",
+        "tags": [],
+        "price": 2.5,
+        "translations": {
+          "it": {
+            "name": "Tortina",
+            "description": "Piccola torta dolce"
+          }
+        },
+        "category": "dolci",
+        "allergens": [
+          "glutine",
+          "latte",
+          "uova"
+        ],
+        "visible": true
+      },
+      {
+        "id": "tramezzino_prosciutto",
+        "translations": {
+          "it": {
+            "description": "Con prosciutto cotto, formaggio, uovo, insalata e maionese",
+            "name": "Tramezzino Prosciutto"
+          }
+        },
+        "visible": true,
+        "tags": [
+          "maiale"
+        ],
+        "price": 4.5,
+        "allergens": [
+          "glutine",
+          "latte",
+          "uova"
+        ],
+        "category": "salato"
+      },
+      {
+        "id": "tramezzino_tacchino",
+        "tags": [
+          "pollo"
+        ],
+        "category": "salato",
+        "translations": {
+          "it": {
+            "name": "Tramezzino Tacchino",
+            "description": "Con fesa di tacchino arrosto, pomodoro, insalata e maionese"
+          }
+        },
+        "allergens": [
+          "glutine",
+          "uova"
+        ],
+        "price": 4.5,
+        "visible": true
+      },
+      {
+        "id": "tramezzino_tonno",
+        "visible": true,
+        "allergens": [
+          "glutine",
+          "pesce",
+          "uova"
+        ],
+        "translations": {
+          "it": {
+            "name": "Tramezzino Tonno",
+            "description": "Con tonno, pomodoro, uovo, insalata e maionese"
+          }
+        },
+        "category": "salato",
+        "tags": [],
+        "price": 4.5
+      },
+      {
+        "id": "vino_calice_bianco_rosso",
+        "category": "vini",
+        "translations": {
+          "it": {
+            "name": "Vino Calice Bianco/Rosso",
+            "description": "Calice di vino bianco o rosso"
+          }
+        },
+        "visible": true,
+        "allergens": [
+          "solfiti",
+          "alcol"
+        ],
+        "tags": [],
+        "price": 4
+      },
+      {
+        "id": "whisky",
+        "translations": {
+          "it": {
+            "name": "Whisky",
+            "description": "Bicchiere di whisky"
+          }
+        },
+        "category": "aperitivi",
+        "tags": [],
+        "visible": true,
+        "price": 5,
+        "allergens": [
+          "alcol"
+        ]
+      },
+      {
+        "id": "yogurt_frutta",
+        "price": 2.5,
+        "visible": true,
+        "tags": [],
+        "translations": {
+          "it": {
+            "name": "Yogurt alla Frutta",
+            "description": "Yogurt con frutta"
+          }
+        },
+        "allergens": [
+          "latte"
+        ],
+        "category": "dolci"
+      },
+      {
+        "id": "zattera",
+        "translations": {
+          "it": {
+            "description": "Con prosciutto crudo, mozzarella, pomodoro e insalata",
+            "name": "Zattera"
+          }
+        },
+        "allergens": [
+          "glutine",
+          "latte"
+        ],
+        "tags": [
+          "maiale",
+          "congelato"
+        ],
+        "category": "salato",
+        "visible": true,
+        "price": 6
+      }
+    ],
+    "categories": [
+      {
+        "id": "salato",
+        "order": 1,
+        "visible": true,
+        "translations": {
+          "ru": "",
+          "pt": "",
+          "fr": "",
+          "de": "",
+          "it": "Panini",
+          "zh": "",
+          "es": "",
+          "ar": "",
+          "ja": "",
+          "en": ""
+        }
+      },
+      {
+        "id": "dolci",
+        "translations": {
+          "zh": "",
+          "es": "",
+          "fr": "",
+          "de": "",
+          "ja": "",
+          "ru": "",
+          "ar": "",
+          "pt": "",
+          "it": "Dolci",
+          "en": ""
+        },
+        "order": 3,
+        "visible": true
+      },
+      {
+        "id": "caffetteria",
+        "order": 4,
+        "visible": true,
+        "translations": {
+          "pt": "",
+          "fr": "",
+          "en": "",
+          "ru": "",
+          "es": "",
+          "ar": "",
+          "it": "Caffetteria",
+          "de": "",
+          "zh": "",
+          "ja": ""
+        }
+      },
+      {
+        "id": "aperitivi",
+        "order": 5,
+        "visible": true,
+        "translations": {
+          "pt": "",
+          "it": "Aperitivi",
+          "es": "",
+          "fr": "",
+          "ja": "",
+          "de": "",
+          "en": "",
+          "ar": "",
+          "zh": "",
+          "ru": ""
+        }
+      },
+      {
+        "id": "bevande_fredde",
+        "visible": true,
+        "translations": {
+          "ar": "",
+          "ja": "",
+          "ru": "",
+          "en": "",
+          "zh": "",
+          "pt": "",
+          "fr": "",
+          "de": "",
+          "es": "",
+          "it": "Bevande Analcoliche"
+        },
+        "order": 6
+      },
+      {
+        "id": "birre",
+        "visible": true,
+        "translations": {
+          "fr": "",
+          "pt": "",
+          "zh": "",
+          "en": "",
+          "ar": "",
+          "es": "",
+          "it": "Birre",
+          "ja": "",
+          "ru": "",
+          "de": ""
+        },
+        "order": 7
+      },
+      {
+        "id": "vini",
+        "translations": {
+          "pt": "",
+          "en": "",
+          "ar": "",
+          "ru": "",
+          "ja": "",
+          "de": "",
+          "zh": "",
+          "it": "Vino",
+          "es": "",
+          "fr": ""
+        },
+        "visible": true,
+        "order": 8
+      }
+    ],
+    "translations": {
+      "ja": {
+        "molluschi": "軟体動物",
+        "no_results_desc": "フィルターや検索を変更してみてください",
+        "senape": "からし",
+        "vegetariano": "ベジタリアン",
+        "review_title": "体験はいかがでしたか？",
+        "loading": "メニューを読み込み中...",
+        "soia": "大豆",
+        "sedano": "セロリ",
+        "legend_explanation": "アイテムをクリックして、それを含む製品を除外します",
+        "pollo": "鶏肉",
+        "alcol": "アルコール",
+        "maiale": "豚肉",
+        "latte": "乳",
+        "no_results": "結果が見つかりません",
+        "arachidi": "ピーナッツ",
+        "bevande_fredde": "冷たい飲み物",
+        "caffetteria": "コーヒーショップ",
+        "review_subtitle": "レビューを残して他のお客様を助けてください！",
+        "lupini": "ルピナス",
+        "salato": "塩味",
+        "pesce": "魚",
+        "disclaimer_shared": "すべての料理は共有環境で調理されているため、交差汚染がないことを保証できません",
+        "aperitivi": "アペリティフ",
+        "birre": "ビール",
+        "frutta_guscio": "ナッツ類",
+        "solfiti": "亜硫酸塩",
+        "disclaimer_service": "テーブルサービスは提供していません。カウンターでご注文ください。",
+        "dolci": "デザート",
+        "glutine": "グルテン",
+        "uova": "卵",
+        "legend_title": "凡例",
+        "review_button": "レビューを残す",
+        "crostacei": "甲殻類",
+        "search_placeholder": "メニューを検索...",
+        "legend_allergens_title": "アレルゲン",
+        "sesamo": "ゴマ",
+        "legend_characteristics_title": "特徴",
+        "filter_allergens": "避けるアレルゲンをフィルター",
+        "vini": "ワイン",
+        "bevande_calde": "温かい飲み物"
+      },
+      "it": {
+        "disclaimer_service": "Non si effettua servizio al tavolo. Ordinare al banco.",
+        "score_label": "Punteggio",
+        "latte": "Latte",
+        "no_results": "Nessun risultato trovato",
+        "legend_characteristics_title": "Caratteristiche",
+        "senape": "Senape",
+        "no_scores_text": "Nessun punteggio salvato. Gioca per essere il primo!",
+        "game_subtitle": "Divertiti mentre aspetti il tuo ordine!",
+        "arachidi": "Arachidi",
+        "glutine": "Glutine",
+        "pesce": "Pesce",
+        "molluschi": "Molluschi",
+        "review_title": "Ti è piaciuta la tua esperienza?",
+        "salato": "Salato",
+        "caffetteria": "Caffetteria",
+        "game_button_text": "Gioca Ora",
+        "game_invitation_subtitle": "Divertiti con il nostro gioco del dinosauro mentre aspetti!",
+        "save_score_label": "Inserisci il tuo nome per la classifica:",
+        "final_score_text": "Punteggio finale:",
+        "pollo": "Pollo",
+        "birre": "Birre",
+        "no_results_desc": "Prova a cambiare i filtri o la ricerca",
+        "legend_allergens_title": "Allergeni",
+        "bevande_calde": "Bevande Calde",
+        "speed_label": "Velocità",
+        "sedano": "Sedano",
+        "orientation_title": "Ruota il dispositivo",
+        "no_scores_modal_text": "Nessun punteggio salvato",
+        "instruction_4": "Tocca per ricominciare dopo il game over",
+        "save_score": "Salva Punteggio",
+        "random_name_suggestion": "Suggerimento:",
+        "restart_text": "Gioca Ancora",
+        "sesamo": "Semi di sesamo",
+        "vini": "Vini",
+        "game_controls_text": "Tocca lo schermo per iniziare o saltare",
+        "orientation_message": "Per una migliore esperienza di gioco, ruota il tuo dispositivo in orizzontale",
+        "leaderboard_main_title": "🏆 Classifica Migliori Punteggi",
+        "bevande_fredde": "Bevande Fredde",
+        "filter_allergens": "Filtra allergeni da evitare",
+        "skip_save": "Salta",
+        "legend_explanation": "Clicca su un elemento per escludere i prodotti che lo contengono",
+        "soia": "Soia",
+        "game_invitation_title": "Tempo di attesa?",
+        "leaderboard_text": "Classifica",
+        "orientation_note": "Il gioco è ottimizzato per la modalità landscape",
+        "use_suggestion": "Usa questo",
+        "instruction_1": "Tocca lo schermo per saltare (o premi SPAZIO su desktop)",
+        "maiale": "Maiale",
+        "game_over_title": "Game Over!",
+        "leaderboard_title": "🏆 Classifica",
+        "review_button": "Lascia Recensione",
+        "crostacei": "Crostacei",
+        "review_subtitle": "Lascia una recensione e aiuta altri clienti!",
+        "instruction_3": "Più a lungo resisti, più alto sarà il tuo punteggio",
+        "disclaimer_shared": "Tutti i piatti sono preparati in un ambiente condiviso, di conseguenza non possiamo garantire che non ci siano contaminazioni",
+        "frutta_guscio": "Frutta a guscio",
+        "alcol": "Alcol",
+        "continue_portrait_text": "Continua in verticale",
+        "new_record_title": "Nuovo Record!",
+        "dolci": "Dolci",
+        "solfiti": "Solfiti",
+        "lupini": "Lupini",
+        "search_placeholder": "Cerca nel menu...",
+        "loading": "Caricamento menu...",
+        "instructions_title": "Come Giocare",
+        "back_to_menu_text": "Torna al Menu",
+        "high_score_label": "Record",
+        "game_title": "Gioco del Dinosauro",
+        "uova": "Uova",
+        "vegetariano": "Vegetariano",
+        "play_again": "Gioca Ancora",
+        "instruction_2": "Evita tavoli, pizze e mestoli per continuare a correre",
+        "player_name_placeholder": "Il tuo nome o lascia vuoto per nome casuale",
+        "legend_title": "Legenda",
+        "aperitivi": "Aperitivi"
+      },
+      "es": {
+        "maiale": "Cerdo",
+        "pesce": "Pescado",
+        "legend_title": "Leyenda",
+        "alcol": "Alcohol",
+        "legend_allergens_title": "Alérgenos",
+        "lupini": "Altramuces",
+        "no_results": "No se encontraron resultados",
+        "review_subtitle": "¡Deja una reseña y ayuda a otros clientes!",
+        "disclaimer_service": "No se proporciona servicio de mesa. Por favor, ordene en el mostrador.",
+        "solfiti": "Sulfitos",
+        "arachidi": "Cacahuetes",
+        "search_placeholder": "Buscar en el menú...",
+        "latte": "Leche",
+        "vini": "Vinos",
+        "frutta_guscio": "Frutos secos",
+        "loading": "Cargando menú...",
+        "salato": "Salado",
+        "sesamo": "Semillas de sésamo",
+        "no_results_desc": "Intenta cambiar los filtros o la búsqueda",
+        "senape": "Mostaza",
+        "dolci": "Postres",
+        "crostacei": "Crustáceos",
+        "sedano": "Apio",
+        "vegetariano": "Vegetariano",
+        "filter_allergens": "Filtrar alérgenos a evitar",
+        "birre": "Cervezas",
+        "glutine": "Gluten",
+        "pollo": "Pollo",
+        "disclaimer_shared": "Todos los platos se preparan en un ambiente compartido, por lo tanto no podemos garantizar que no haya contaminaciones cruzadas",
+        "review_button": "Dejar Reseña",
+        "bevande_calde": "Bebidas Calientes",
+        "aperitivi": "Aperitivos",
+        "soia": "Soja",
+        "bevande_fredde": "Bebidas Frías",
+        "legend_characteristics_title": "Características",
+        "legend_explanation": "Haz clic en un elemento para excluir productos que lo contengan",
+        "caffetteria": "Cafetería",
+        "review_title": "¿Te gustó tu experiencia?",
+        "uova": "Huevos",
+        "molluschi": "Moluscos"
+      },
+      "pt": {
+        "soia": "Soja",
+        "loading": "Carregando menu...",
+        "review_subtitle": "Deixe uma avaliação e ajude outros clientes!",
+        "review_title": "Gostou da sua experiência?",
+        "glutine": "Glúten",
+        "frutta_guscio": "Frutos secos",
+        "salato": "Salgado",
+        "senape": "Mostarda",
+        "crostacei": "Crustáceos",
+        "arachidi": "Amendoim",
+        "uova": "Ovos",
+        "search_placeholder": "Pesquisar no menu...",
+        "lupini": "Tremoços",
+        "disclaimer_service": "Não há serviço de mesa. Por favor, faça o pedido no balcão.",
+        "alcol": "Álcool",
+        "filter_allergens": "Filtrar alergênios a evitar",
+        "sesamo": "Sementes de gergelim",
+        "legend_title": "Legenda",
+        "pollo": "Frango",
+        "caffetteria": "Cafeteria",
+        "solfiti": "Sulfitos",
+        "aperitivi": "Aperitivos",
+        "birre": "Cervejas",
+        "dolci": "Sobremesas",
+        "sedano": "Aipo",
+        "bevande_fredde": "Bebidas Frias",
+        "pesce": "Peixe",
+        "legend_explanation": "Clique em um item para excluir produtos que o contenham",
+        "latte": "Leite",
+        "legend_characteristics_title": "Características",
+        "no_results_desc": "Tente alterar os filtros ou a pesquisa",
+        "vegetariano": "Vegetariano",
+        "vini": "Vinhos",
+        "disclaimer_shared": "Todos os pratos são preparados em ambiente compartilhado, portanto não podemos garantir que não haja contaminações cruzadas",
+        "bevande_calde": "Bebidas Quentes",
+        "maiale": "Porco",
+        "legend_allergens_title": "Alergênios",
+        "molluschi": "Moluscos",
+        "review_button": "Deixar Avaliação",
+        "no_results": "Nenhum resultado encontrado"
+      },
+      "ar": {
+        "alcol": "الكحول",
+        "soia": "الصويا",
+        "pesce": "السمك",
+        "search_placeholder": "البحث في القائمة...",
+        "legend_explanation": "انقر على عنصر لاستبعاد المنتجات التي تحتويه",
+        "bevande_fredde": "مشروبات باردة",
+        "pollo": "دجاج",
+        "caffetteria": "مقهى",
+        "filter_allergens": "فلترة مسببات الحساسية المراد تجنبها",
+        "loading": "جاري تحميل القائمة...",
+        "no_results_desc": "جرب تغيير الفلاتر أو البحث",
+        "disclaimer_shared": "جميع الأطباق يتم تحضيرها في بيئة مشتركة، لذلك لا يمكننا ضمان عدم وجود تلوث متقاطع",
+        "salato": "مالح",
+        "solfiti": "الكبريتات",
+        "no_results": "لم يتم العثور على نتائج",
+        "maiale": "خنزير",
+        "vegetariano": "نباتي",
+        "review_button": "ترك مراجعة",
+        "uova": "البيض",
+        "glutine": "الغلوتين",
+        "sedano": "الكرفس",
+        "birre": "بيرة",
+        "vini": "خمور",
+        "lupini": "الترمس",
+        "aperitivi": "فاتحات الشهية",
+        "latte": "الحليب",
+        "bevande_calde": "مشروبات ساخنة",
+        "review_subtitle": "اترك مراجعة وساعد العملاء الآخرين!",
+        "frutta_guscio": "المكسرات",
+        "legend_allergens_title": "مسببات الحساسية",
+        "molluschi": "الرخويات",
+        "legend_title": "وسيلة الإيضاح",
+        "legend_characteristics_title": "الخصائص",
+        "sesamo": "بذور السمسم",
+        "crostacei": "القشريات",
+        "dolci": "حلويات",
+        "senape": "الخردل",
+        "review_title": "هل أعجبتك تجربتك؟",
+        "arachidi": "الفول السوداني",
+        "disclaimer_service": "لا يتم توفير خدمة الطاولة. يرجى الطلب من المنضدة."
+      },
+      "en": {
+        "game_title": "Dinosaur Game",
+        "legend_title": "Legend",
+        "player_name_placeholder": "Your name or leave empty for random name",
+        "soia": "Soy",
+        "final_score_text": "Final score:",
+        "skip_save": "Skip",
+        "continue_portrait_text": "Continue in Portrait",
+        "arachidi": "Peanuts",
+        "use_suggestion": "Use this",
+        "solfiti": "Sulfites",
+        "crostacei": "Crustaceans",
+        "review_button": "Leave Review",
+        "leaderboard_text": "Leaderboard",
+        "no_results_desc": "Try changing filters or search",
+        "orientation_message": "For a better gaming experience, rotate your device to landscape",
+        "review_title": "Did you enjoy your experience?",
+        "dolci": "Desserts",
+        "leaderboard_main_title": "🏆 Top Scores Leaderboard",
+        "back_to_menu_text": "Back to Menu",
+        "game_controls_text": "Tap the screen to start or jump",
+        "instructions_title": "How to Play",
+        "senape": "Mustard",
+        "restart_text": "Play Again",
+        "instruction_4": "Tap to restart after game over",
+        "pollo": "Chicken",
+        "high_score_label": "High Score",
+        "aperitivi": "Aperitifs",
+        "game_over_title": "Game Over!",
+        "review_subtitle": "Leave a review and help other customers!",
+        "game_subtitle": "Have fun while waiting for your order!",
+        "search_placeholder": "Search menu...",
+        "sesamo": "Sesame seeds",
+        "bevande_calde": "Hot Drinks",
+        "vegetariano": "Vegetarian",
+        "pesce": "Fish",
+        "lupini": "Lupins",
+        "game_button_text": "Play Now",
+        "instruction_1": "Tap the screen to jump (or press SPACE on desktop)",
+        "caffetteria": "Coffee Shop",
+        "instruction_3": "The longer you survive, the higher your score",
+        "sedano": "Celery",
+        "molluschi": "Mollusks",
+        "birre": "Beers",
+        "save_score": "Save Score",
+        "no_scores_text": "No scores saved. Play to be the first!",
+        "legend_allergens_title": "Allergens",
+        "new_record_title": "New Record!",
+        "random_name_suggestion": "Suggestion:",
+        "game_invitation_subtitle": "Have fun with our dinosaur game while you wait!",
+        "save_score_label": "Enter your name for the leaderboard:",
+        "no_results": "No results found",
+        "orientation_title": "Rotate Device",
+        "salato": "Savory",
+        "score_label": "Score",
+        "disclaimer_shared": "All dishes are prepared in a shared environment, therefore we cannot guarantee that there is no cross-contamination",
+        "glutine": "Gluten",
+        "uova": "Eggs",
+        "vini": "Wines",
+        "disclaimer_service": "No table service provided. Please order at the counter.",
+        "maiale": "Pork",
+        "game_invitation_title": "Waiting time?",
+        "orientation_note": "The game is optimized for landscape mode",
+        "play_again": "Play Again",
+        "legend_characteristics_title": "Characteristics",
+        "latte": "Milk",
+        "alcol": "Alcohol",
+        "filter_allergens": "Filter allergens to avoid",
+        "speed_label": "Speed",
+        "leaderboard_title": "🏆 Leaderboard",
+        "loading": "Loading menu...",
+        "frutta_guscio": "Nuts",
+        "legend_explanation": "Click on an item to exclude products containing it",
+        "bevande_fredde": "Cold Drinks",
+        "no_scores_modal_text": "No scores saved",
+        "instruction_2": "Avoid tables, pizzas and ladles to keep running"
+      },
+      "_languages": {
+        "de": {
+          "active": true,
+          "flag": "<span class=\"flag-icon flag-icon-de\"></span>",
+          "direction": "ltr",
+          "name": "Deutsch"
+        },
+        "ar": {
+          "direction": "rtl",
+          "active": true,
+          "name": "العربية",
+          "flag": "<span class=\"flag-icon flag-icon-sa\"></span>"
+        },
+        "en": {
+          "direction": "ltr",
+          "active": true,
+          "name": "English",
+          "flag": "<span class=\"flag-icon flag-icon-gb\"></span>"
+        },
+        "fr": {
+          "active": true,
+          "flag": "<span class=\"flag-icon flag-icon-fr\"></span>",
+          "direction": "ltr",
+          "name": "Français"
+        },
+        "zh": {
+          "name": "中文",
+          "direction": "ltr",
+          "active": true,
+          "flag": "<span class=\"flag-icon flag-icon-cn\"></span>"
+        },
+        "ru": {
+          "flag": "<span class=\"flag-icon flag-icon-ru\"></span>",
+          "name": "Русский",
+          "direction": "ltr",
+          "active": true
+        },
+        "es": {
+          "active": true,
+          "flag": "<span class=\"flag-icon flag-icon-es\"></span>",
+          "name": "Español",
+          "direction": "ltr"
+        },
+        "pt": {
+          "direction": "ltr",
+          "flag": "<span class=\"flag-icon flag-icon-pt\"></span>",
+          "name": "Português",
+          "active": true
+        },
+        "ja": {
+          "flag": "<span class=\"flag-icon flag-icon-jp\"></span>",
+          "active": true,
+          "direction": "ltr",
+          "name": "日本語"
+        },
+        "it": {
+          "active": true,
+          "flag": "<span class=\"flag-icon flag-icon-it\"></span>",
+          "direction": "ltr",
+          "name": "Italiano"
+        }
+      },
+      "de": {
+        "review_subtitle": "Hinterlassen Sie eine Bewertung und helfen Sie anderen Kunden!",
+        "loading": "Menü wird geladen...",
+        "caffetteria": "Café",
+        "review_title": "Hat Ihnen Ihre Erfahrung gefallen?",
+        "aperitivi": "Aperitifs",
+        "no_results": "Keine Ergebnisse gefunden",
+        "legend_title": "Legende",
+        "pesce": "Fisch",
+        "disclaimer_shared": "Alle Gerichte werden in einer gemeinsamen Umgebung zubereitet, daher können wir nicht garantieren, dass es keine Kreuzkontaminationen gibt",
+        "glutine": "Gluten",
+        "sesamo": "Sesamsamen",
+        "arachidi": "Erdnüsse",
+        "alcol": "Alkohol",
+        "dolci": "Desserts",
+        "crostacei": "Krebstiere",
+        "review_button": "Bewertung Hinterlassen",
+        "vegetariano": "Vegetarisch",
+        "sedano": "Sellerie",
+        "frutta_guscio": "Nüsse",
+        "molluschi": "Weichtiere",
+        "latte": "Milch",
+        "lupini": "Lupinen",
+        "legend_characteristics_title": "Eigenschaften",
+        "disclaimer_service": "Kein Tischservice. Bitte bestellen Sie an der Theke.",
+        "vini": "Weine",
+        "salato": "Herzhaft",
+        "filter_allergens": "Allergene zum Vermeiden filtern",
+        "no_results_desc": "Versuchen Sie, Filter oder Suche zu ändern",
+        "senape": "Senf",
+        "maiale": "Schwein",
+        "legend_allergens_title": "Allergene",
+        "birre": "Biere",
+        "bevande_calde": "Heißgetränke",
+        "bevande_fredde": "Kaltgetränke",
+        "search_placeholder": "Menü durchsuchen...",
+        "soia": "Soja",
+        "solfiti": "Sulfite",
+        "pollo": "Huhn",
+        "legend_explanation": "Klicken Sie auf ein Element, um Produkte auszuschließen, die es enthalten",
+        "uova": "Eier"
+      },
+      "zh": {
+        "alcol": "酒精",
+        "sesamo": "芝麻",
+        "review_title": "您喜欢您的体验吗？",
+        "dolci": "甜品",
+        "bevande_fredde": "冷饮",
+        "loading": "正在加载菜单...",
+        "lupini": "羽扇豆",
+        "legend_allergens_title": "过敏源",
+        "legend_characteristics_title": "特征",
+        "pollo": "鸡肉",
+        "frutta_guscio": "坚果",
+        "disclaimer_service": "不提供餐桌服务。请在柜台点餐。",
+        "review_button": "留下评价",
+        "glutine": "面筋",
+        "crostacei": "甲壳类",
+        "molluschi": "软体动物",
+        "caffetteria": "咖啡厅",
+        "vegetariano": "素食",
+        "legend_explanation": "点击项目以排除包含它的产品",
+        "maiale": "猪肉",
+        "senape": "芥末",
+        "disclaimer_shared": "所有菜品都在共享环境中准备，因此我们不能保证没有交叉污染",
+        "latte": "牛奶",
+        "search_placeholder": "搜索菜单...",
+        "bevande_calde": "热饮",
+        "pesce": "鱼",
+        "soia": "大豆",
+        "review_subtitle": "留下评价并帮助其他客户！",
+        "salato": "咸味",
+        "arachidi": "花生",
+        "vini": "葡萄酒",
+        "aperitivi": "开胃酒",
+        "uova": "鸡蛋",
+        "no_results": "未找到结果",
+        "birre": "啤酒",
+        "sedano": "芹菜",
+        "solfiti": "亚硫酸盐",
+        "no_results_desc": "尝试更改过滤器或搜索",
+        "legend_title": "图例",
+        "filter_allergens": "过滤要避免的过敏源"
+      },
+      "ru": {
+        "review_title": "Понравился ли вам ваш опыт?",
+        "review_subtitle": "Оставьте отзыв и помогите другим клиентам!",
+        "legend_allergens_title": "Аллергены",
+        "pesce": "Рыба",
+        "search_placeholder": "Поиск в меню...",
+        "vegetariano": "Вегетарианский",
+        "filter_allergens": "Фильтровать аллергены для избежания",
+        "arachidi": "Арахис",
+        "glutine": "Глютен",
+        "no_results_desc": "Попробуйте изменить фильтры или поиск",
+        "birre": "Пиво",
+        "lupini": "Люпин",
+        "no_results": "Результаты не найдены",
+        "dolci": "Десерты",
+        "sesamo": "Семена кунжута",
+        "latte": "Молоко",
+        "legend_explanation": "Нажмите на элемент, чтобы исключить продукты, содержащие его",
+        "solfiti": "Сульфиты",
+        "bevande_calde": "Горячие напитки",
+        "disclaimer_shared": "Все блюда готовятся в общей среде, поэтому мы не можем гарантировать отсутствие перекрестного загрязнения",
+        "molluschi": "Моллюски",
+        "senape": "Горчица",
+        "legend_characteristics_title": "Характеристики",
+        "maiale": "Свинина",
+        "vini": "Вина",
+        "pollo": "Курица",
+        "legend_title": "Легенда",
+        "sedano": "Сельдерей",
+        "aperitivi": "Аперитивы",
+        "caffetteria": "Кофейня",
+        "soia": "Соя",
+        "frutta_guscio": "Орехи",
+        "salato": "Соленое",
+        "uova": "Яйца",
+        "disclaimer_service": "Обслуживание за столом не предоставляется. Пожалуйста, делайте заказ у стойки.",
+        "loading": "Загрузка меню...",
+        "crostacei": "Ракообразные",
+        "bevande_fredde": "Холодные напитки",
+        "review_button": "Оставить Отзыв",
+        "alcol": "Алкоголь"
+      },
+      "fr": {
+        "loading": "Chargement du menu...",
+        "senape": "Moutarde",
+        "arachidi": "Arachides",
+        "caffetteria": "Café",
+        "bevande_fredde": "Boissons Froides",
+        "legend_title": "Légende",
+        "pollo": "Poulet",
+        "salato": "Salé",
+        "latte": "Lait",
+        "review_subtitle": "Laissez un avis et aidez d'autres clients!",
+        "sesamo": "Graines de sésame",
+        "birre": "Bières",
+        "vegetariano": "Végétarien",
+        "alcol": "Alcool",
+        "glutine": "Gluten",
+        "review_title": "Avez-vous apprécié votre expérience?",
+        "disclaimer_shared": "Tous les plats sont préparés dans un environnement partagé, par conséquent nous ne pouvons pas garantir qu'il n'y ait pas de contaminations croisées",
+        "crostacei": "Crustacés",
+        "legend_characteristics_title": "Caractéristiques",
+        "dolci": "Desserts",
+        "legend_allergens_title": "Allergènes",
+        "solfiti": "Sulfites",
+        "aperitivi": "Apéritifs",
+        "pesce": "Poisson",
+        "search_placeholder": "Rechercher dans le menu...",
+        "disclaimer_service": "Aucun service à table. Veuillez commander au comptoir.",
+        "lupini": "Lupins",
+        "sedano": "Céleri",
+        "soia": "Soja",
+        "vini": "Vins",
+        "review_button": "Laisser un Avis",
+        "molluschi": "Mollusques",
+        "maiale": "Porc",
+        "uova": "Œufs",
+        "bevande_calde": "Boissons Chaudes",
+        "filter_allergens": "Filtrer les allergènes à éviter",
+        "no_results": "Aucun résultat trouvé",
+        "no_results_desc": "Essayez de changer les filtres ou la recherche",
+        "legend_explanation": "Cliquez sur un élément pour exclure les produits qui le contiennent",
+        "frutta_guscio": "Fruits à coque"
+      }
+    }
+  }
+};
+        
+        class PopulateApp {
+            constructor() {
+                this.importer = null;
+                this.init();
+            }
+            
+            async init() {
+                // Wait for Firebase to be ready
+                await this.waitForFirebase();
+                
+                this.importer = new DatabaseImporter();
+                this.initEventListeners();
+                
+                this.log('🔥 Sistema pronto per l\'importazione');
+            }
+            
+            async waitForFirebase() {
+                let attempts = 0;
+                const maxAttempts = 50;
+                
+                while (!window.firebaseService?.isInitialized && attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                
+                if (!window.firebaseService?.isInitialized) {
+                    throw new Error('Firebase service not initialized');
+                }
+            }
+            
+            initEventListeners() {
+                // File input
+                document.getElementById('json-file').addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    const importBtn = document.getElementById('import-btn');
+                    
+                    if (file && file.type === 'application/json') {
+                        importBtn.disabled = false;
+                        document.getElementById('import-section').classList.add('active');
+                    } else {
+                        importBtn.disabled = true;
+                        document.getElementById('import-section').classList.remove('active');
+                    }
+                });
+                
+                // Import from file
+                document.getElementById('import-btn').addEventListener('click', async () => {
+                    const file = document.getElementById('json-file').files[0];
+                    if (file) {
+                        await this.importFromFile(file);
+                    }
+                });
+                
+                // Auto import
+                document.getElementById('auto-import-btn').addEventListener('click', async () => {
+                    await this.importEmbeddedData();
+                });
+                
+                // Retry button
+                document.getElementById('retry-btn').addEventListener('click', () => {
+                    this.hideAllMessages();
+                });
+            }
+            
+            async importFromFile(file) {
+                try {
+                    this.showProgress('📁 Lettura file JSON...');
+                    await this.importer.importFromFile(file);
+                    this.showSuccess();
+                } catch (error) {
+                    this.showError(error.message);
+                }
+            }
+            
+            async importEmbeddedData() {
+                try {
+                    this.showProgress('📥 Importazione dati incorporati...');
+                    await this.importer.importFromJSON(EMBEDDED_JSON_DATA);
+                    this.showSuccess();
+                } catch (error) {
+                    this.showError(error.message);
+                }
+            }
+            
+            showProgress(text) {
+                this.hideAllMessages();
+                document.getElementById('progress').classList.add('show');
+                document.getElementById('progress-text').textContent = text;
+                document.getElementById('log').classList.add('show');
+                this.log('⏳ ' + text);
+            }
+            
+            showSuccess() {
+                this.hideAllMessages();
+                document.getElementById('success').classList.add('show');
+                
+                // Show stats
+                const stats = document.getElementById('stats');
+                stats.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number">${this.importer.defaultData.products.length}</div>
+                        <div class="stat-label">Prodotti</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${this.importer.defaultData.categories.length}</div>
+                        <div class="stat-label">Categorie</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${this.importer.availableLanguages.length}</div>
+                        <div class="stat-label">Lingue</div>
+                    </div>
+                `;
+                
+                this.log('✅ Importazione completata con successo!');
+            }
+            
+            showError(message) {
+                this.hideAllMessages();
+                document.getElementById('error').classList.add('show');
+                document.getElementById('error-text').textContent = message;
+                this.log('❌ Errore: ' + message);
+            }
+            
+            hideAllMessages() {
+                document.getElementById('progress').classList.remove('show');
+                document.getElementById('success').classList.remove('show');
+                document.getElementById('error').classList.remove('show');
+            }
+            
+            log(message) {
+                const logElement = document.getElementById('log');
+                const timestamp = new Date().toLocaleTimeString();
+                logElement.innerHTML += `[${timestamp}] ${message}\n`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+        }
+        
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', () => {
+            new PopulateApp();
+        });
+    </script>
+</body>
+</html>
