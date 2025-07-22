@@ -50,6 +50,9 @@ class GameEngine {
         // Translation support
         this.translationService = null;
         
+        // Firebase service for leaderboard
+        this.firebaseService = null;
+        
         this.init();
     }
 
@@ -70,7 +73,7 @@ class GameEngine {
         
         // Load saved data
         this.loadHighScore();
-        this.loadLeaderboard();
+        await this.loadLeaderboard();
         
         // Setup event listeners
         this.setupEventListeners();
@@ -101,6 +104,20 @@ class GameEngine {
             console.log('🎮 [GAME] Translation service connected');
         } else {
             console.warn('🎮 [GAME] Translation service not available, using fallback');
+        }
+        
+        // Also wait for Firebase service
+        attempts = 0;
+        while (!window.firebaseService?.isInitialized && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
+        
+        if (window.firebaseService?.isInitialized) {
+            this.firebaseService = window.firebaseService;
+            console.log('🎮 [GAME] Firebase service connected');
+        } else {
+            console.warn('🎮 [GAME] Firebase service not available, using localStorage only');
         }
     }
 
@@ -425,7 +442,7 @@ class GameEngine {
             
             // Update flying obstacles
             if (obstacle.canFly) {
-                obstacle.flyOffset = (obstacle.flyOffset || 0) + obstacle.flySpeed;
+                obstacle.flyOffset = (obstacle.flyOffset || 0) + obstacle.flySpeed * deltaTime;
                 obstacle.y = obstacle.baseY + Math.sin(obstacle.flyOffset) * obstacle.flyAmplitude;
             }
             
@@ -620,21 +637,22 @@ class GameEngine {
         }
     }
 
-    saveScore() {
+    async saveScore() {
         const playerNameInput = document.getElementById('player-name');
         const playerName = playerNameInput?.value.trim() || 'Giocatore Anonimo';
         
         const scoreEntry = {
             name: playerName,
             score: Math.floor(this.score),
-            date: new Date().toLocaleDateString('it-IT')
+            date: new Date().toLocaleDateString('it-IT'),
+            timestamp: Date.now()
         };
         
         this.leaderboard.push(scoreEntry);
         this.leaderboard.sort((a, b) => b.score - a.score);
         this.leaderboard = this.leaderboard.slice(0, 10); // Keep only top 10
         
-        this.saveLeaderboard();
+        await this.saveLeaderboard();
         this.updateLeaderboardDisplay();
         
         // Hide save score section and show default buttons
@@ -910,20 +928,55 @@ class GameEngine {
         localStorage.setItem('game-high-score', this.highScore.toString());
     }
 
-    loadLeaderboard() {
+    async loadLeaderboard() {
+        // Try to load from Firebase first
+        if (this.firebaseService) {
+            try {
+                const doc = await this.firebaseService.db.collection('game').doc('leaderboard').get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    this.leaderboard = data.scores || [];
+                    console.log('🎮 [GAME] Leaderboard loaded from Firebase:', this.leaderboard.length, 'scores');
+                    this.updateLeaderboardDisplay();
+                    return;
+                }
+            } catch (error) {
+                console.warn('🎮 [GAME] Error loading leaderboard from Firebase:', error);
+            }
+        }
+        
+        // Fallback to localStorage
         const saved = localStorage.getItem('game-leaderboard');
         if (saved) {
             try {
                 this.leaderboard = JSON.parse(saved);
+                console.log('🎮 [GAME] Leaderboard loaded from localStorage:', this.leaderboard.length, 'scores');
             } catch (e) {
                 this.leaderboard = [];
             }
+        } else {
+            this.leaderboard = [];
         }
         this.updateLeaderboardDisplay();
     }
 
-    saveLeaderboard() {
+    async saveLeaderboard() {
+        // Save to Firebase first
+        if (this.firebaseService) {
+            try {
+                await this.firebaseService.db.collection('game').doc('leaderboard').set({
+                    scores: this.leaderboard,
+                    lastUpdated: new Date().toISOString()
+                });
+                console.log('🎮 [GAME] Leaderboard saved to Firebase');
+            } catch (error) {
+                console.warn('🎮 [GAME] Error saving leaderboard to Firebase:', error);
+            }
+        }
+        
+        // Always save to localStorage as backup
         localStorage.setItem('game-leaderboard', JSON.stringify(this.leaderboard));
+        console.log('🎮 [GAME] Leaderboard saved to localStorage');
     }
 }
 

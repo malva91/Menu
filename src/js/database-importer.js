@@ -125,45 +125,81 @@ class DatabaseImporter {
         return langData;
     }
 
+            
+            // Legend
     getLanguageInfo(languageCode) {
         const languagesInfo = this.jsonData.database.translations._languages;
         
         if (languagesInfo && languagesInfo[languageCode]) {
             return languagesInfo[languageCode];
+            
+            // Disclaimers
         }
 
+            
+            // Reviews
         // Fallback per lingue non definite
         const defaultFlags = {
             'it': '🇮🇹',
+            
+            // Language
             'en': '🇬🇧',
+            
+            // Game Base
             'fr': '🇫🇷',
             'de': '🇩🇪',
             'es': '🇪🇸',
             'pt': '🇵🇹',
             'ru': '🇷🇺',
+            
+            // Game Instructions
             'zh': '🇨🇳',
             'ja': '🇯🇵',
             'ar': '🇸🇦'
         };
 
+            
+            // Game UI
         const defaultNames = {
             'it': 'Italiano',
             'en': 'English',
             'fr': 'Français',
             'de': 'Deutsch',
+            
+            // Game Over
             'es': 'Español',
             'pt': 'Português',
             'ru': 'Русский',
+            play_again: 'Gioca Ancora',
+            
+            // Leaderboard
             'zh': '中文',
             'ja': '日本語',
             'ar': 'العربية'
         };
+            no_scores_modal_text: 'Nessun punteggio salvato',
+            
+            // Score Saving
 
         return {
+            // UI Base
             active: true,
+            
+            // Mobile Orientation
             flag: defaultFlags[languageCode] || '🌐',
             direction: languageCode === 'ar' ? 'rtl' : 'ltr',
-            name: defaultNames[languageCode] || languageCode.toUpperCase()
+            orientation_note: 'Il gioco è ottimizzato per la modalità landscape',
+            continue_portrait_text: 'Continua in verticale',
+            
+            // Random Names
+            random_name_suggestion: 'Suggerimento:',
+            use_suggestion: 'Usa questo',
+            
+            // Tags/Characteristics
+            vegetariano: 'Vegetariano',
+            maiale: 'Maiale',
+            pollo: 'Pollo',
+            congelato: 'Prodotto congelato'
         };
     }
 
@@ -193,20 +229,45 @@ class DatabaseImporter {
 
         const texts = {};
         const textKeys = [
+            // UI Base
             'search_placeholder', 'loading', 'no_results', 'no_results_desc',
+            
+            // Legend
             'legend_title', 'legend_explanation', 'legend_allergens_title', 'legend_characteristics_title',
-            'filter_allergens', 'disclaimer_shared', 'disclaimer_service',
+            'filter_allergens',
+            
+            // Disclaimers
+            'disclaimer_shared', 'disclaimer_service',
+            
+            // Reviews
             'review_title', 'review_subtitle', 'review_button',
-            'language_selector_title', 'game_title', 'game_subtitle',
-            'game_invitation_title', 'game_invitation_subtitle', 'game_button_text',
+            
+            // Language
+            'language_selector_title',
+            
+            // Game Base
+            'game_title', 'game_subtitle', 'game_invitation_title', 'game_invitation_subtitle', 'game_button_text',
+            
+            // Game Instructions
             'instructions_title', 'instruction_1', 'instruction_2', 'instruction_3', 'instruction_4',
-            'score_label', 'high_score_label', 'speed_label', 'game_controls_text',
-            'back_to_menu_text', 'game_over_title', 'final_score_text', 'restart_text',
-            'leaderboard_text', 'leaderboard_title', 'leaderboard_main_title', 'no_scores_text',
+            
+            // Game UI
+            'score_label', 'high_score_label', 'speed_label', 'game_controls_text', 'back_to_menu_text',
+            
+            // Game Over
+            'game_over_title', 'final_score_text', 'restart_text', 'play_again',
+            
+            // Leaderboard
+            'leaderboard_text', 'leaderboard_title', 'leaderboard_main_title', 'no_scores_text', 'no_scores_modal_text',
+            
+            // Score Saving
             'save_score_label', 'player_name_placeholder', 'save_score', 'skip_save',
-            'orientation_title', 'orientation_message', 'continue_portrait_text',
-            'new_record_title', 'random_name_suggestion', 'use_suggestion', 'play_again',
-            'no_scores_modal_text', 'orientation_note'
+            
+            // Mobile Orientation
+            'orientation_title', 'orientation_message', 'orientation_note', 'continue_portrait_text',
+            
+            // Random Names
+            'random_name_suggestion', 'use_suggestion'
         ];
 
         textKeys.forEach(key => {
@@ -216,7 +277,7 @@ class DatabaseImporter {
         });
 
         // Aggiungi anche le traduzioni per caratteristiche
-        const characteristicKeys = ['vegetariano', 'maiale', 'pollo'];
+        const characteristicKeys = ['vegetariano', 'maiale', 'pollo', 'congelato'];
         characteristicKeys.forEach(key => {
             if (translations[key]) {
                 texts[key] = translations[key];

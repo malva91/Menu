@@ -67,8 +67,8 @@ export const GAME_CONFIG = {
                 y: [70, 110], // Due altezze diverse per ostacoli volanti
                 sprite: 'src/assets/images/mestolo.png',
                 canFly: true,
-                flySpeed: 2, // Velocità movimento verticale
-                flyAmplitude: 15, // Ampiezza movimento
+                flySpeed: 0.05, // Velocità movimento verticale (molto più lenta)
+                flyAmplitude: 20, // Ampiezza movimento
                 collisionBoxes: [
                     { x: 2, y: 2, width: 31, height: 26 }
                 ]
