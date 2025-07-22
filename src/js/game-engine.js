@@ -1,4 +1,4 @@
-// Game Engine - Sistema di gioco ottimizzato con traduzioni strutturate
+// Game Engine - Simplified with new translation system
 import { GAME_CONFIG, GameUtils, spriteLoader, initializeSprites, getRandomPlayerName } from './game-config.js';
 
 class GameEngine {
@@ -32,18 +32,14 @@ class GameEngine {
         this.isMobile = GameUtils.isMobile();
         this.isPortraitAllowed = false;
         
-        // Translations
-        this.translations = {};
-        this.currentLanguage = 'it';
-        
         this.init();
     }
     
     async init() {
         console.log('🎮 [GAME] Initializing game engine...');
         
-        // Load translations first
-        await this.loadTranslations();
+        // Wait for translation service
+        await this.waitForTranslationService();
         
         // Initialize canvas
         this.initCanvas();
@@ -72,175 +68,19 @@ class GameEngine {
         console.log('🎮 [GAME] Game engine initialized successfully');
     }
     
-    async loadTranslations() {
-        // Get current language from localStorage or detect browser language
-        this.currentLanguage = localStorage.getItem('game-language') || 
-                              this.detectBrowserLanguage() || 'it';
-        
-        try {
-            // Wait for Firebase service to be available
-            await this.waitForFirebase();
-            
-            const translationsData = await window.firebaseService.getTranslations();
-            this.translations = translationsData;
-            
-            console.log('🌍 [GAME] Translations loaded for language:', this.currentLanguage);
-        } catch (error) {
-            console.warn('🌍 [GAME] Could not load translations, using fallback');
-            this.translations = this.getFallbackTranslations();
-        }
-    }
-    
-    async waitForFirebase() {
+    async waitForTranslationService() {
         let attempts = 0;
         const maxAttempts = 50;
         
-        while (!window.firebaseService && attempts < maxAttempts) {
+        while (!window.translationService?.isLoaded && attempts < maxAttempts) {
             await new Promise(resolve => setTimeout(resolve, 100));
             attempts++;
         }
-        
-        if (window.firebaseService) {
-            // Wait for Firebase to be initialized
-            attempts = 0;
-            while (!window.firebaseService.isInitialized && attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                attempts++;
-            }
-        }
-    }
-    
-    detectBrowserLanguage() {
-        const browserLang = navigator.language.split('-')[0];
-        const supportedLanguages = ['it', 'en', 'fr', 'de', 'es', 'pt', 'ru', 'zh', 'ja', 'ar'];
-        return supportedLanguages.includes(browserLang) ? browserLang : 'it';
-    }
-    
-    getFallbackTranslations() {
-        return {
-            it: {
-                game: {
-                    game_title: "Gioco del Dinosauro",
-                    game_subtitle: "Divertiti mentre aspetti il tuo ordine!",
-                    instructions_title: "Come Giocare",
-                    instruction_1: "Tocca lo schermo per saltare (o premi SPAZIO su desktop)",
-                    instruction_2: "Evita tavoli, pizze e mestoli per continuare a correre",
-                    instruction_3: "Più a lungo resisti, più alto sarà il tuo punteggio",
-                    instruction_4: "Tocca per ricominciare dopo il game over",
-                    score_label: "Punteggio",
-                    high_score_label: "Record",
-                    speed_label: "Velocità",
-                    game_controls_text: "Tocca lo schermo per iniziare o saltare",
-                    back_to_menu_text: "Torna al Menu",
-                    game_over_title: "Game Over!",
-                    final_score_text: "Punteggio finale:",
-                    restart_text: "Gioca Ancora",
-                    leaderboard_text: "Classifica",
-                    leaderboard_main_title: "🏆 Classifica Migliori Punteggi",
-                    no_scores_text: "Nessun punteggio salvato. Gioca per essere il primo!",
-                    save_score_label: "Inserisci il tuo nome per la classifica:",
-                    use_suggestion: "Usa questo",
-                    player_name_placeholder: "Il tuo nome o lascia vuoto per nome casuale",
-                    save_score: "Salva Punteggio",
-                    skip_save: "Salta",
-                    orientation_title: "Ruota il dispositivo",
-                    orientation_message: "Per una migliore esperienza di gioco, ruota il tuo dispositivo in orizzontale",
-                    orientation_note: "Il gioco è ottimizzato per la modalità landscape",
-                    continue_portrait_text: "Continua in verticale",
-                    random_name_suggestion: "Suggerimento:"
-                }
-            },
-            en: {
-                game: {
-                    game_title: "Dinosaur Game",
-                    game_subtitle: "Have fun while waiting for your order!",
-                    instructions_title: "How to Play",
-                    instruction_1: "Tap the screen to jump (or press SPACE on desktop)",
-                    instruction_2: "Avoid tables, pizzas and ladles to keep running",
-                    instruction_3: "The longer you survive, the higher your score",
-                    instruction_4: "Tap to restart after game over",
-                    score_label: "Score",
-                    high_score_label: "High Score",
-                    speed_label: "Speed",
-                    game_controls_text: "Tap the screen to start or jump",
-                    back_to_menu_text: "Back to Menu",
-                    game_over_title: "Game Over!",
-                    final_score_text: "Final score:",
-                    restart_text: "Play Again",
-                    leaderboard_text: "Leaderboard",
-                    leaderboard_main_title: "🏆 Top Scores Leaderboard",
-                    no_scores_text: "No scores saved. Play to be the first!",
-                    save_score_label: "Enter your name for the leaderboard:",
-                    use_suggestion: "Use this",
-                    player_name_placeholder: "Your name or leave empty for random name",
-                    save_score: "Save Score",
-                    skip_save: "Skip",
-                    orientation_title: "Rotate Device",
-                    orientation_message: "For a better gaming experience, rotate your device to landscape",
-                    orientation_note: "The game is optimized for landscape mode",
-                    continue_portrait_text: "Continue in Portrait",
-                    random_name_suggestion: "Suggestion:"
-                }
-            }
-        };
-    }
-    
-    // Get translation helper
-    t(key) {
-        const langTranslations = this.translations[this.currentLanguage] || this.translations.it || {};
-        
-        // Try structured approach first
-        if (langTranslations.game && langTranslations.game[key]) {
-            return langTranslations.game[key];
-        }
-        
-        // Fallback to flat structure for backward compatibility
-        return langTranslations[key] || key;
     }
     
     updateUITranslations() {
-        // Update all game UI elements with translations
-        const elements = {
-            'game-title': this.t('game_title'),
-            'game-subtitle': this.t('game_subtitle'),
-            'instructions-title': this.t('instructions_title'),
-            'instruction-1': this.t('instruction_1'),
-            'instruction-2': this.t('instruction_2'),
-            'instruction-3': this.t('instruction_3'),
-            'instruction-4': this.t('instruction_4'),
-            'score-label': this.t('score_label'),
-            'high-score-label': this.t('high_score_label'),
-            'speed-label': this.t('speed_label'),
-            'game-controls-text': this.t('game_controls_text'),
-            'back-to-menu-text': this.t('back_to_menu_text'),
-            'game-over-title': this.t('game_over_title'),
-            'final-score-text': this.t('final_score_text'),
-            'restart-text': this.t('restart_text'),
-            'leaderboard-text': this.t('leaderboard_text'),
-            'leaderboard-main-title': this.t('leaderboard_main_title'),
-            'no-scores-text': this.t('no_scores_text'),
-            'save-score-label': this.t('save_score_label'),
-            'use-random-name': this.t('use_suggestion'),
-            'save-score-btn': this.t('save_score'),
-            'skip-save-btn': this.t('skip_save'),
-            'orientation-title': this.t('orientation_title'),
-            'orientation-message': this.t('orientation_message'),
-            'orientation-note': this.t('orientation_note'),
-            'continue-portrait-text': this.t('continue_portrait_text'),
-            'random-name-text': this.t('random_name_suggestion')
-        };
-        
-        Object.entries(elements).forEach(([id, text]) => {
-            const element = document.getElementById(id);
-            if (element && text) {
-                element.textContent = text;
-            }
-        });
-        
-        // Update placeholder
-        const playerNameInput = document.getElementById('player-name');
-        if (playerNameInput) {
-            playerNameInput.placeholder = this.t('player_name_placeholder');
+        if (window.translationService) {
+            window.translationService.updateTranslatableElements();
         }
     }
     
@@ -644,11 +484,6 @@ class GameEngine {
         
         // Check if it's a new high score
         if (this.score >= this.highScore) {
-            const gameOverTitle = document.getElementById('game-over-title');
-            if (gameOverTitle) {
-                gameOverTitle.textContent = this.t('new_record_title');
-            }
-            
             // Show save score section
             document.getElementById('save-score-section').style.display = 'block';
             document.getElementById('default-buttons').style.display = 'none';
@@ -659,7 +494,7 @@ class GameEngine {
             const useRandomNameBtn = document.getElementById('use-random-name');
             
             if (randomNameText) {
-                randomNameText.textContent = this.t('random_name_suggestion') + ' ' + randomName;
+                randomNameText.textContent = 'Suggerimento: ' + randomName;
             }
             
             if (useRandomNameBtn) {

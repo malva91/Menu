@@ -34,11 +34,11 @@
     <div id="orientation-notice" class="orientation-notice">
         <div class="orientation-content">
             <div class="rotate-icon">📱</div>
-            <h2 id="orientation-title"></h2>
-            <p id="orientation-message"></p>
-            <small id="orientation-note"></small>
+            <h2 data-translate="game.orientation_title">Ruota il dispositivo</h2>
+            <p data-translate="game.orientation_message">Per una migliore esperienza di gioco, ruota il tuo dispositivo in orizzontale</p>
+            <small>Il gioco è ottimizzato per la modalità landscape</small>
             <button id="continue-portrait" class="btn-continue-portrait">
-                <span id="continue-portrait-text"></span>
+                <span data-translate="game.continue_portrait_text">Continua in verticale</span>
             </button>
         </div>
     </div>
@@ -48,29 +48,29 @@
         <div class="container">
             <!-- Game Header -->
             <div class="game-header">
-                <h1 class="game-title" id="game-title"></h1>
-                <p class="game-subtitle" id="game-subtitle"></p>
+                <h1 class="game-title" data-translate="game.game_title">Gioco del Dinosauro</h1>
+                <p class="game-subtitle" data-translate="game.game_subtitle">Divertiti mentre aspetti il tuo ordine!</p>
             </div>
 
             <!-- Game Instructions -->
             <div class="game-instructions">
-                <h3 class="instructions-title" id="instructions-title"></h3>
+                <h3 class="instructions-title" data-translate="game.instructions_title">Come Giocare</h3>
                 <ul class="instructions-list">
                     <li>
                         <span class="instruction-icon">🦕</span>
-                        <span id="instruction-1"></span>
+                        <span data-translate="game.instruction_1">Tocca lo schermo per saltare</span>
                     </li>
                     <li>
                         <span class="instruction-icon">🌵</span>
-                        <span id="instruction-2"></span>
+                        <span data-translate="game.instruction_2">Evita gli ostacoli</span>
                     </li>
                     <li>
                         <span class="instruction-icon">🏆</span>
-                        <span id="instruction-3"></span>
+                        <span data-translate="game.instruction_3">Ottieni il punteggio più alto</span>
                     </li>
                     <li>
                         <span class="instruction-icon">🎮</span>
-                        <span id="instruction-4"></span>
+                        <span data-translate="game.instruction_4">Tocca per ricominciare</span>
                     </li>
                 </ul>
             </div>
@@ -78,15 +78,15 @@
             <!-- Game Info -->
             <div class="game-info">
                 <div class="info-card">
-                    <div class="info-label" id="score-label"></div>
+                    <div class="info-label" data-translate="game.score_label">Punteggio</div>
                     <div class="info-value" id="score">0</div>
                 </div>
                 <div class="info-card">
-                    <div class="info-label" id="high-score-label"></div>
+                    <div class="info-label" data-translate="game.high_score_label">Record</div>
                     <div class="info-value" id="highScore">0</div>
                 </div>
                 <div class="info-card">
-                    <div class="info-label" id="speed-label"></div>
+                    <div class="info-label" data-translate="game.speed_label">Velocità</div>
                     <div class="info-value" id="speed">1x</div>
                 </div>
             </div>
@@ -97,21 +97,21 @@
                 
                 <!-- Game Over Screen -->
                 <div id="gameOver" class="game-over">
-                    <h3 id="game-over-title"></h3>
-                    <p class="final-score"><span id="final-score-text"></span> <span id="finalScore">0</span></p>
+                    <h3 data-translate="game.game_over_title">Game Over!</h3>
+                    <p class="final-score"><span data-translate="game.final_score_text">Punteggio finale:</span> <span id="finalScore">0</span></p>
                     
                     <!-- Save Score Section -->
                     <div id="save-score-section" class="save-score-section" style="display: none;">
                         <div class="save-score-form">
-                            <label for="player-name" id="save-score-label"></label>
+                            <label for="player-name" data-translate="game.save_score_label">Inserisci il tuo nome:</label>
                             <div class="random-name-suggestion">
-                                <span id="random-name-text"></span>
-                                <button type="button" id="use-random-name" class="random-name-btn"></button>
+                                <span id="random-name-text">Suggerimento: Mario Veloce</span>
+                                <button type="button" id="use-random-name" class="random-name-btn">Usa questo</button>
                             </div>
-                            <input type="text" id="player-name" maxlength="20">
+                            <input type="text" id="player-name" maxlength="20" data-translate="game.player_name_placeholder">
                             <div class="game-over-buttons">
-                                <button id="save-score-btn" class="btn-save"></button>
-                                <button id="skip-save-btn" class="btn-skip"></button>
+                                <button id="save-score-btn" class="btn-save" data-translate="game.save_score">Salva</button>
+                                <button id="skip-save-btn" class="btn-skip" data-translate="game.skip_save">Salta</button>
                             </div>
                         </div>
                     </div>
@@ -119,10 +119,10 @@
                     <!-- Default buttons -->
                     <div id="default-buttons" class="game-over-buttons">
                         <button id="restartBtn" class="btn-restart">
-                            <span id="restart-text"></span>
+                            <span data-translate="game.restart_text">Gioca Ancora</span>
                         </button>
                         <button id="leaderboard-btn" class="btn-leaderboard">
-                            <span id="leaderboard-text"></span>
+                            <span data-translate="game.leaderboard_text">Classifica</span>
                         </button>
                     </div>
                 </div>
@@ -130,17 +130,17 @@
 
             <!-- Game Controls -->
             <div class="game-controls">
-                <p id="game-controls-text"></p>
+                <p data-translate="game.game_controls_text">Tocca lo schermo per iniziare o saltare</p>
             </div>
 
             <!-- Always Visible Leaderboard -->
             <div class="game-leaderboard-section">
                 <div class="game-leaderboard-header">
-                    <h3 id="leaderboard-main-title"></h3>
+                    <h3 data-translate="game.leaderboard_main_title">🏆 Classifica Migliori Punteggi</h3>
                 </div>
                 <div class="game-leaderboard-container">
                     <ol id="game-leaderboard-list" class="game-leaderboard-list">
-                        <li class="no-scores-game" id="no-scores-text"></li>
+                        <li class="no-scores-game" data-translate="game.no_scores_text">Nessun punteggio salvato</li>
                     </ol>
                 </div>
             </div>
@@ -149,7 +149,7 @@
             <div class="back-to-menu">
                 <a href="index.html" class="btn-back">
                     <i class="fas fa-arrow-left"></i>
-                    <span id="back-to-menu-text"></span>
+                    <span data-translate="game.back_to_menu_text">Torna al Menu</span>
                 </a>
             </div>
         </div>
@@ -158,7 +158,7 @@
     <!-- Language Selector Modal -->
     <div id="language-selector-game" class="language-selector-game hidden" role="dialog" aria-labelledby="language-title-game">
         <div class="language-content">
-            <h2 id="language-title-game">Seleziona Lingua / Select Language</h2>
+            <h2 data-translate="ui.language_selector_title">Seleziona Lingua / Select Language</h2>
             <div class="language-grid" id="language-grid-game">
                 <!-- Le lingue saranno caricate dinamicamente -->
             </div>
@@ -195,6 +195,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script type="module" src="src/js/firebase.js"></script>
+    <script type="module" src="src/js/translation-service.js"></script>
     <script type="module" src="src/js/game-config.js"></script>
     <script type="module" src="src/js/game-engine.js"></script>
 </body>
