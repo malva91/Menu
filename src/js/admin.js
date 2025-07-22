@@ -90,10 +90,6 @@ class AdminPanel {
             this.showCategoriesModal();
         });
         
-        document.getElementById('manage-languages-btn')?.addEventListener('click', () => {
-            this.showLanguagesModal();
-        });
-        
         document.getElementById('manage-translations-btn')?.addEventListener('click', () => {
             this.showTranslationsModal();
         });
@@ -436,156 +432,462 @@ class AdminPanel {
     // Translation management
     showTranslationsModal() {
         const modal = document.getElementById('translations-modal');
-        if (!modal) {
-            this.createTranslationsModal();
-        } else {
-            modal.classList.remove('hidden');
-        }
-        this.loadTranslationsInterface();
-    }
-
-    createTranslationsModal() {
-        const modalHTML = `
-            <div id="translations-modal" class="modal" role="dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2>Gestione Traduzioni</h2>
-                        <button class="close-btn" aria-label="Chiudi">×</button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="translations-controls">
-                            <div class="form-group">
-                                <label for="translation-language-select">Lingua:</label>
-                                <select id="translation-language-select">
-                                    ${Object.entries(this.languages).map(([code, data]) => 
-                                        `<option value="${code}">${data.flag || DEFAULT_LANGUAGE_FLAGS[code] || '🌐'} ${data.name}</option>`
-                                    ).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="translation-category-select">Categoria:</label>
-                                <select id="translation-category-select">
-                                    <option value="ui">Interfaccia Utente</option>
-                                    <option value="game">Gioco</option>
-                                    <option value="allergens">Allergeni</option>
-                                    <option value="tags">Caratteristiche</option>
-                                </select>
-                            </div>
-                            <button id="load-translations-btn" class="btn-primary">Carica Traduzioni</button>
-                        </div>
-                        <div id="translations-editor" class="translations-editor">
-                            <!-- Translation fields will be loaded here -->
-                        </div>
-                        <div class="form-actions">
-                            <button id="save-translations-btn" class="btn-primary">Salva Traduzioni</button>
-                            <button id="export-language-btn" class="btn-secondary">Esporta Lingua</button>
-                            <button id="import-language-btn" class="btn-secondary">Importa Lingua</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-        
-        // Add event listeners
-        document.getElementById('load-translations-btn').addEventListener('click', () => {
-            this.loadTranslationsForEditing();
-        });
-        
-        document.getElementById('save-translations-btn').addEventListener('click', () => {
-            this.saveTranslations();
-        });
-        
-        document.getElementById('export-language-btn').addEventListener('click', () => {
-            this.exportLanguage();
-        });
-        
-        document.getElementById('import-language-btn').addEventListener('click', () => {
-            this.importLanguage();
-        });
-        
-        document.querySelector('#translations-modal .close-btn').addEventListener('click', () => {
-            document.getElementById('translations-modal').classList.add('hidden');
-        });
-    }
-
-    loadTranslationsInterface() {
-        const modal = document.getElementById('translations-modal');
         modal.classList.remove('hidden');
-        
-        // Update language select
-        const languageSelect = document.getElementById('translation-language-select');
-        if (languageSelect) {
-            languageSelect.innerHTML = Object.entries(this.languages).map(([code, data]) => 
-                `<option value="${code}">${data.flag || DEFAULT_LANGUAGE_FLAGS[code] || '🌐'} ${data.name}</option>`
-            ).join('');
-        }
+        this.loadAllTranslations();
     }
 
-    async loadTranslationsForEditing() {
-        const language = document.getElementById('translation-language-select').value;
-        const category = document.getElementById('translation-category-select').value;
-        
-        if (!language || !category) return;
-        
+    async loadAllTranslations() {
         try {
-            const translations = await window.firebaseService.getTranslations(language);
-            const categoryTranslations = translations[category] || {};
+            // Carica tutte le traduzioni esistenti
+            const allTranslations = await window.firebaseService.getTranslations();
             
-            this.renderTranslationEditor(category, categoryTranslations);
+            // Carica prodotti e categorie per le loro traduzioni
+            const [products, categories] = await Promise.all([
+                window.firebaseService.getProducts(),
+                window.firebaseService.getCategories()
+            ]);
+            
+            this.renderTranslationsEditor(allTranslations, products, categories);
         } catch (error) {
             console.error('🔧 [ADMIN] Error loading translations:', error);
             this.showMessage('Errore nel caricamento delle traduzioni', 'error');
         }
     }
 
-    renderTranslationEditor(category, translations) {
-        const editor = document.getElementById('translations-editor');
-        const keys = TRANSLATION_KEYS[category] || [];
+    renderTranslationsEditor(allTranslations, products, categories) {
+        const container = document.getElementById('translations-container');
+        const languages = ['it', 'en', 'fr', 'de', 'es', 'pt', 'ru', 'zh', 'ja', 'ar'];
         
-        editor.innerHTML = `
-            <h3>Traduzioni per categoria: ${category}</h3>
-            <div class="translation-fields">
-                ${keys.map(key => `
-                    <div class="form-group">
-                        <label for="trans-${key}">${key}:</label>
-                        <input type="text" id="trans-${key}" value="${translations[key] || ''}" 
-                               placeholder="Inserisci traduzione per ${key}">
+        container.innerHTML = `
+            <div class="translations-tabs">
+                ${languages.map((lang, index) => `
+                    <button class="translation-tab ${index === 0 ? 'active' : ''}" data-lang="${lang}">
+                        ${DEFAULT_LANGUAGE_FLAGS[lang] || '🌐'} ${this.getLanguageName(lang)}
+                    </button>
+                `).join('')}
+            </div>
+            
+            <div class="translations-content">
+                ${languages.map((lang, index) => `
+                    <div class="translation-panel ${index === 0 ? 'active' : ''}" data-lang="${lang}">
+                        ${this.renderLanguageTranslations(lang, allTranslations[lang] || {}, products, categories)}
                     </div>
                 `).join('')}
+            </div>
+            
+            <div class="translations-actions">
+                <button id="save-all-translations" class="btn-primary">Salva Tutte le Traduzioni</button>
+                <button id="export-translations" class="btn-secondary">Esporta Traduzioni</button>
+                <button id="import-translations" class="btn-secondary">Importa Traduzioni</button>
+            </div>
+        `;
+        
+        // Aggiungi event listeners per i tab
+        document.querySelectorAll('.translation-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const lang = e.target.dataset.lang;
+                this.switchTranslationTab(lang);
+            });
+        });
+        
+        // Event listeners per azioni
+        document.getElementById('save-all-translations').addEventListener('click', () => {
+            this.saveAllTranslations();
+        });
+        
+        document.getElementById('export-translations').addEventListener('click', () => {
+            this.exportAllTranslations();
+        });
+        
+        document.getElementById('import-translations').addEventListener('click', () => {
+            this.importTranslations();
+        });
+    }
+
+    renderLanguageTranslations(language, translations, products, categories) {
+        const uiTranslations = translations.ui || {};
+        const gameTranslations = translations.game || {};
+        const allergenTranslations = translations.allergens || {};
+        const tagTranslations = translations.tags || {};
+        
+        return `
+            <div class="translation-sections">
+                <!-- Interfaccia Utente -->
+                <div class="translation-section">
+                    <h3><i class="fas fa-desktop"></i> Interfaccia Utente</h3>
+                    <div class="translation-fields">
+                        ${TRANSLATION_KEYS.ui.map(key => `
+                            <div class="form-group">
+                                <label>${key}:</label>
+                                <input type="text" 
+                                       data-lang="${language}" 
+                                       data-category="ui" 
+                                       data-key="${key}"
+                                       value="${uiTranslations[key] || ''}" 
+                                       placeholder="Traduzione per ${key}">
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <!-- Gioco -->
+                <div class="translation-section">
+                    <h3><i class="fas fa-gamepad"></i> Gioco</h3>
+                    <div class="translation-fields">
+                        ${TRANSLATION_KEYS.game.map(key => `
+                            <div class="form-group">
+                                <label>${key}:</label>
+                                <input type="text" 
+                                       data-lang="${language}" 
+                                       data-category="game" 
+                                       data-key="${key}"
+                                       value="${gameTranslations[key] || ''}" 
+                                       placeholder="Traduzione per ${key}">
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <!-- Allergeni -->
+                <div class="translation-section">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Allergeni</h3>
+                    <div class="translation-fields">
+                        ${TRANSLATION_KEYS.allergens.map(key => `
+                            <div class="form-group">
+                                <label>${this.getAllergenEmoji(key)} ${key}:</label>
+                                <input type="text" 
+                                       data-lang="${language}" 
+                                       data-category="allergens" 
+                                       data-key="${key}"
+                                       value="${allergenTranslations[key] || ''}" 
+                                       placeholder="Traduzione per ${key}">
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <!-- Tag/Caratteristiche -->
+                <div class="translation-section">
+                    <h3><i class="fas fa-tags"></i> Caratteristiche</h3>
+                    <div class="translation-fields">
+                        ${TRANSLATION_KEYS.tags.map(key => `
+                            <div class="form-group">
+                                <label>${this.getTagEmoji(key)} ${key}:</label>
+                                <input type="text" 
+                                       data-lang="${language}" 
+                                       data-category="tags" 
+                                       data-key="${key}"
+                                       value="${tagTranslations[key] || ''}" 
+                                       placeholder="Traduzione per ${key}">
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <!-- Prodotti -->
+                <div class="translation-section">
+                    <h3><i class="fas fa-utensils"></i> Prodotti</h3>
+                    <div class="translation-fields">
+                        ${products.map(product => `
+                            <div class="product-translation">
+                                <h4>${product.id}</h4>
+                                <div class="form-group">
+                                    <label>Nome:</label>
+                                    <input type="text" 
+                                           data-lang="${language}" 
+                                           data-category="products" 
+                                           data-key="${product.id}_name"
+                                           value="${product.translations?.[language]?.name || ''}" 
+                                           placeholder="Nome prodotto in ${language}">
+                                </div>
+                                <div class="form-group">
+                                    <label>Descrizione:</label>
+                                    <textarea data-lang="${language}" 
+                                              data-category="products" 
+                                              data-key="${product.id}_description"
+                                              placeholder="Descrizione prodotto in ${language}">${product.translations?.[language]?.description || ''}</textarea>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <!-- Categorie -->
+                <div class="translation-section">
+                    <h3><i class="fas fa-folder"></i> Categorie</h3>
+                    <div class="translation-fields">
+                        ${categories.map(category => `
+                            <div class="form-group">
+                                <label>${category.id}:</label>
+                                <input type="text" 
+                                       data-lang="${language}" 
+                                       data-category="categories" 
+                                       data-key="${category.id}"
+                                       value="${category.translations?.[language] || ''}" 
+                                       placeholder="Nome categoria in ${language}">
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
             </div>
         `;
     }
 
-    async saveTranslations() {
-        const language = document.getElementById('translation-language-select').value;
-        const category = document.getElementById('translation-category-select').value;
+    switchTranslationTab(language) {
+        // Rimuovi active da tutti i tab e panel
+        document.querySelectorAll('.translation-tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.translation-panel').forEach(panel => panel.classList.remove('active'));
         
-        if (!language || !category) return;
-        
+        // Aggiungi active al tab e panel selezionati
+        document.querySelector(`[data-lang="${language}"].translation-tab`).classList.add('active');
+        document.querySelector(`[data-lang="${language}"].translation-panel`).classList.add('active');
+    }
+
+    async saveAllTranslations() {
         try {
-            // Get current translations for this language
-            const currentTranslations = await window.firebaseService.getTranslations(language);
+            const languages = ['it', 'en', 'fr', 'de', 'es', 'pt', 'ru', 'zh', 'ja', 'ar'];
             
-            // Update the specific category
-            if (!currentTranslations[category]) {
-                currentTranslations[category] = {};
+            for (const language of languages) {
+                // Raccogli tutte le traduzioni per questa lingua
+                const translations = {
+                    ui: {},
+                    game: {},
+                    allergens: {},
+                    tags: {}
+                };
+                
+                // Raccogli traduzioni UI, Game, Allergens, Tags
+                document.querySelectorAll(`input[data-lang="${language}"], textarea[data-lang="${language}"]`).forEach(input => {
+                    const category = input.dataset.category;
+                    const key = input.dataset.key;
+                    const value = input.value.trim();
+                    
+                    if (value && ['ui', 'game', 'allergens', 'tags'].includes(category)) {
+                        translations[category][key] = value;
+                    }
+                });
+                
+                // Salva traduzioni generali
+                if (Object.keys(translations.ui).length > 0 || 
+                    Object.keys(translations.game).length > 0 || 
+                    Object.keys(translations.allergens).length > 0 || 
+                    Object.keys(translations.tags).length > 0) {
+                    await window.firebaseService.saveTranslations(language, translations);
+                }
+                
+                // Aggiorna traduzioni prodotti
+                const productUpdates = {};
+                document.querySelectorAll(`input[data-lang="${language}"][data-category="products"], textarea[data-lang="${language}"][data-category="products"]`).forEach(input => {
+                    const key = input.dataset.key;
+                    const value = input.value.trim();
+                    
+                    if (value) {
+                        const [productId, field] = key.split('_');
+                        if (!productUpdates[productId]) {
+                            productUpdates[productId] = {};
+                        }
+                        productUpdates[productId][field] = value;
+                    }
+                });
+                
+                // Salva traduzioni prodotti
+                for (const [productId, translations] of Object.entries(productUpdates)) {
+                    const product = this.products.find(p => p.id === productId);
+                    if (product) {
+                        if (!product.translations) product.translations = {};
+                        product.translations[language] = translations;
+                        await window.firebaseService.saveProduct(product);
+                    }
+                }
+                
+                // Aggiorna traduzioni categorie
+                const categoryUpdates = {};
+                document.querySelectorAll(`input[data-lang="${language}"][data-category="categories"]`).forEach(input => {
+                    const categoryId = input.dataset.key;
+                    const value = input.value.trim();
+                    
+                    if (value) {
+                        categoryUpdates[categoryId] = value;
+                    }
+                });
+                
+                // Salva traduzioni categorie
+                for (const [categoryId, translation] of Object.entries(categoryUpdates)) {
+                    const category = this.categories.find(c => c.id === categoryId);
+                    if (category) {
+                        if (!category.translations) category.translations = {};
+                        category.translations[language] = translation;
+                        await window.firebaseService.saveCategory(category);
+                    }
+                }
             }
             
-            // Collect values from form
-            const keys = TRANSLATION_KEYS[category] || [];
-            keys.forEach(key => {
-                const input = document.getElementById(`trans-${key}`);
-                if (input) {
-                    currentTranslations[category][key] = input.value.trim();
-                }
+            this.showMessage('Tutte le traduzioni sono state salvate con successo', 'success');
+        } catch (error) {
+            console.error('🔧 [ADMIN] Error saving translations:', error);
+            this.showMessage('Errore nel salvataggio delle traduzioni', 'error');
+        }
+    }
+
+    async exportAllTranslations() {
+        
+        try {
+            const exportData = await window.firebaseService.exportData({
+                includeProducts: true,
+                includeCategories: true,
+                includeLanguages: true,
+                includeTranslations: true
             });
             
-            // Save to database
-            await window.firebaseService.saveTranslations(language, currentTranslations);
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `traduzioni_complete_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
             
-            this.showMessage('Traduzioni salvate con successo', 'success');
+            this.showMessage('Traduzioni esportate con successo', 'success');
+        } catch (error) {
+            console.error('🔧 [ADMIN] Error exporting translations:', error);
+            this.showMessage('Errore nell\'esportazione', 'error');
+        }
+    }
+
+    importTranslations() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                
+                await window.firebaseService.importData(data, {
+                    includeProducts: true,
+                    includeCategories: true,
+                    includeLanguages: true,
+                    includeTranslations: true
+                });
+                
+                // Ricarica i dati
+                await this.loadData();
+                
+                // Ricarica l'interfaccia traduzioni
+                this.loadAllTranslations();
+                
+                this.showMessage('Traduzioni importate con successo', 'success');
+            } catch (error) {
+                console.error('🔧 [ADMIN] Error importing translations:', error);
+                this.showMessage('Errore nell\'importazione: ' + error.message, 'error');
+            }
+        };
+        input.click();
+    }
+
+    getLanguageName(code) {
+        const names = {
+            'it': 'Italiano',
+            'en': 'English', 
+            'fr': 'Français',
+            'de': 'Deutsch',
+            'es': 'Español',
+            'pt': 'Português',
+            'ru': 'Русский',
+            'zh': '中文',
+            'ja': '日本語',
+            'ar': 'العربية'
+        };
+        return names[code] || code.toUpperCase();
+    }
+
+    getTagEmoji(tag) {
+        const emojis = {
+            'maiale': '🐷',
+            'pollo': '🍗', 
+            'vegetariano': '🥦',
+            'congelato': '❄️'
+        };
+        return emojis[tag] || '🏷️';
+    }
+
+    // Utility methods
+    filterProducts(searchTerm) {
+        // Implementation for product filtering
+        console.log('Filtering products:', searchTerm);
+    }
+
+    filterProductsByCategory(category) {
+        // Implementation for category filtering
+        console.log('Filtering by category:', category);
+    }
+
+    filterProductsByVisibility(visibility) {
+        // Implementation for visibility filtering
+        console.log('Filtering by visibility:', visibility);
+    }
+
+    showCategoriesModal() {
+        // Implementation for categories management
+        console.log('Show categories modal');
+    }
+
+    logout() {
+        sessionStorage.removeItem('admin-auth');
+        location.reload();
+    }
+
+    showLoading() {
+        const loading = document.getElementById('admin-loading');
+        if (loading) {
+            loading.classList.remove('hidden');
+        }
+    }
+
+    hideLoading() {
+        const loading = document.getElementById('admin-loading');
+        if (loading) {
+            loading.classList.add('hidden');
+        }
+    }
+
+    showError(message) {
+        this.hideLoading();
+        this.showMessage(message, 'error');
+    }
+
+    showMessage(message, type = 'info') {
+        // Create and show message
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+        messageDiv.innerHTML = `
+            <span>${message}</span>
+            <button onclick="this.parentElement.remove()">×</button>
+        `;
+        
+        const container = document.querySelector('.admin-content .container');
+        if (container) {
+            container.insertBefore(messageDiv, container.firstChild);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (messageDiv.parentElement) {
+                    messageDiv.remove();
+                }
+            }, 5000);
+        }
+    }
+}
+
+// Initialize admin panel when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    new AdminPanel();
+});
         } catch (error) {
             console.error('🔧 [ADMIN] Error saving translations:', error);
             this.showMessage('Errore nel salvataggio delle traduzioni', 'error');
