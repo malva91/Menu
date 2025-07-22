@@ -1,4 +1,4 @@
-// Menu App - Simplified with new translation system
+// Menu App - Rewritten for new translation system
 class MenuApp {
     constructor() {
         this.products = [];
@@ -13,6 +13,8 @@ class MenuApp {
     }
 
     async init() {
+        console.log('📱 [MENU] Initializing menu app...');
+        
         // Wait for translation service to be ready
         await this.waitForTranslationService();
         
@@ -24,11 +26,13 @@ class MenuApp {
         
         // Update UI
         this.renderMenu();
+        
+        console.log('📱 [MENU] Menu app initialized');
     }
 
     async waitForTranslationService() {
         let attempts = 0;
-        const maxAttempts = 50;
+        const maxAttempts = 100;
         
         while (!window.translationService?.isLoaded && attempts < maxAttempts) {
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -36,7 +40,7 @@ class MenuApp {
         }
         
         if (!window.translationService?.isLoaded) {
-            console.warn('🌍 [MENU] Translation service not ready, using fallback');
+            console.warn('📱 [MENU] Translation service not ready, using fallback');
         }
     }
 
@@ -118,32 +122,32 @@ class MenuApp {
         this.showLoading();
         
         try {
-            const [products, categories] = await Promise.all([
-                window.firebaseService.getProducts(),
-                window.firebaseService.getCategories()
-            ]);
+            if (!window.translationService.isLoaded) {
+                throw new Error('Translation service not ready');
+            }
             
-            if (!products || products.length === 0) {
+            // Get merged data from translation service
+            this.products = window.translationService.getMergedProducts();
+            this.categories = window.translationService.getMergedCategories();
+            this.filteredProducts = this.products;
+            
+            if (this.products.length === 0) {
                 throw new Error('No products found in database');
             }
             
-            if (!categories || categories.length === 0) {
+            if (this.categories.length === 0) {
                 throw new Error('No categories found in database');
             }
             
-            this.products = products;
-            this.categories = categories;
-            this.filteredProducts = products;
-            
             this.updateLanguageSelector();
-            this.updateUITranslations();
+            this.updateAllergenLabels();
             this.renderMenu();
             
             setTimeout(() => {
                 this.hideLoading();
             }, 100);
         } catch (error) {
-            console.error('Error loading data:', error);
+            console.error('📱 [MENU] Error loading data:', error);
             this.showError(`Errore nel caricamento del menu: ${error.message}`);
         }
     }
@@ -151,18 +155,17 @@ class MenuApp {
     // Language methods
     toggleLanguageSelector() {
         const selector = document.getElementById('language-selector');
-        selector.classList.toggle('hidden');
+        selector?.classList.toggle('hidden');
     }
 
     hideLanguageSelector() {
-        document.getElementById('language-selector').classList.add('hidden');
+        document.getElementById('language-selector')?.classList.add('hidden');
     }
 
     async changeLanguage(language) {
         const success = await window.translationService.changeLanguage(language);
         if (success) {
-            this.updateUITranslations();
-            this.renderMenu();
+            await this.loadData(); // Reload data with new language
             this.hideLanguageSelector();
         }
     }
@@ -171,7 +174,7 @@ class MenuApp {
         const languageGrid = document.querySelector('.language-grid');
         if (!languageGrid) return;
         
-        const availableLanguages = window.translationService.getAvailableLanguages();
+        const availableLanguages = window.translationService.getAvailableLanguagesForUI();
         
         languageGrid.innerHTML = availableLanguages.map(lang => `
             <button class="lang-btn" data-lang="${lang.code}">
@@ -188,26 +191,12 @@ class MenuApp {
         });
     }
 
-    updateUITranslations() {
-        if (!window.translationService) return;
-        
-        // Update translatable elements
-        window.translationService.updateTranslatableElements();
-        
-        // Update allergen and tag labels in legend and filter
+    updateAllergenLabels() {
+        // Update allergen labels in legend and filter
         document.querySelectorAll('[data-allergen]').forEach(element => {
             const allergen = element.dataset.allergen;
-            const translation = window.translationService.t('allergens', allergen);
+            const translation = window.translationService.getAllergen(allergen);
             const textElement = element.querySelector('.legend-text, .allergen-label');
-            if (textElement && translation) {
-                textElement.textContent = translation;
-            }
-        });
-        
-        document.querySelectorAll('[data-tag]').forEach(element => {
-            const tag = element.dataset.tag;
-            const translation = window.translationService.t('tags', tag);
-            const textElement = element.querySelector('.legend-text');
             if (textElement && translation) {
                 textElement.textContent = translation;
             }
@@ -217,7 +206,7 @@ class MenuApp {
     // Filter methods
     toggleAllergenFilter() {
         const filter = document.getElementById('allergen-filter');
-        filter.classList.toggle('hidden');
+        filter?.classList.toggle('hidden');
     }
 
     hideAllergenFilter() {
@@ -261,10 +250,7 @@ class MenuApp {
             
             // Search filter
             if (this.searchTerm) {
-                const name = window.translationService.getProductTranslation(product, 'name');
-                const description = window.translationService.getProductTranslation(product, 'description');
-                
-                const searchableText = `${name} ${description}`.toLowerCase();
+                const searchableText = `${product.name} ${product.description}`.toLowerCase();
                 if (!searchableText.includes(this.searchTerm)) return false;
             }
             
@@ -335,19 +321,18 @@ class MenuApp {
         // Get visible categories in order
         const visibleCategories = this.categories
             .filter(cat => cat.visible && categorizedProducts[cat.id])
-            .sort((a, b) => a.order - b.order);
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
         
         categoryAccordion.innerHTML = visibleCategories.map(category => {
-            const categoryName = window.translationService.getCategoryTranslation(category);
             const products = categorizedProducts[category.id];
-            const categoryIcon = this.getCategoryIcon(category.id);
+            const categoryIcon = this.getCategoryIcon(category);
             
             return `
             <div class="category-tab" data-category="${category.id}">
                 <div class="category-header" onclick="app.toggleCategory('${category.id}')">
                     <div class="category-title">
                         <i class="category-icon ${categoryIcon}"></i>
-                        <span>${categoryName}</span>
+                        <span>${category.name}</span>
                     </div>
                     <i class="category-toggle fas fa-chevron-down"></i>
                 </div>
@@ -364,7 +349,12 @@ class MenuApp {
         window.app = this;
     }
     
-    getCategoryIcon(categoryId) {
+    getCategoryIcon(category) {
+        if (category.icon) {
+            return category.icon;
+        }
+        
+        // Fallback icons
         const icons = {
             'caffetteria': 'fas fa-coffee',
             'bevande_calde': 'fas fa-mug-hot',
@@ -376,7 +366,7 @@ class MenuApp {
             'birre': 'fas fa-beer'
         };
         
-        return icons[categoryId] || 'fas fa-utensils';
+        return icons[category.id] || 'fas fa-utensils';
     }
     
     toggleCategory(categoryId) {
@@ -401,20 +391,20 @@ class MenuApp {
     }
 
     renderProduct(product) {
-        const name = window.translationService.getProductTranslation(product, 'name') || 'Nome non disponibile';
-        const description = window.translationService.getProductTranslation(product, 'description') || '';
+        const name = product.name || 'Nome non disponibile';
+        const description = product.description || '';
         
         // Render allergens
         const allergenIcons = product.allergens.map(allergen => {
             const allergenEmoji = this.getAllergenEmoji(allergen);
-            const allergenName = window.translationService.t('allergens', allergen);
+            const allergenName = window.translationService.getAllergen(allergen);
             return `<span class="allergen-icon-small tooltip" title="${allergenName}">${allergenEmoji}</span>`;
         }).join('');
         
         // Render tags
         const tagIcons = product.tags.map(tag => {
             const tagEmoji = this.getTagEmoji(tag);
-            const tagName = window.translationService.t('tags', tag);
+            const tagName = this.getTagName(tag);
             return `<span class="product-tag">${tagEmoji} ${tagName}</span>`;
         }).join('');
         
@@ -448,6 +438,16 @@ class MenuApp {
         return emojis[tag] || '🏷️';
     }
 
+    getTagName(tag) {
+        const names = {
+            'maiale': 'Maiale',
+            'pollo': 'Pollo', 
+            'vegetariano': 'Vegetariano',
+            'congelato': 'Prodotto congelato'
+        };
+        return names[tag] || tag;
+    }
+
     // UI State methods
     showLoading() {
         if (!this.isLoading) {
@@ -474,7 +474,7 @@ class MenuApp {
 
     showError(message) {
         this.hideLoading();
-        console.error(message);
+        console.error('📱 [MENU] Error:', message);
         
         const categoryAccordion = document.getElementById('category-accordion');
         if (categoryAccordion) {

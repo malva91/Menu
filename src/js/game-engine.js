@@ -1,4 +1,4 @@
-// Game Engine - Simplified with new translation system
+// Game Engine - Updated for new translation system
 import { GAME_CONFIG, GameUtils, spriteLoader, initializeSprites, getRandomPlayerName } from './game-config.js';
 
 class GameEngine {

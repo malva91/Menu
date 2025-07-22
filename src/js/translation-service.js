@@ -1,27 +1,46 @@
-// Translation Service - New centralized translation system
-import { TRANSLATION_KEYS, DEFAULT_LANGUAGE_FLAGS } from '../utils/constants.js';
-
+// Translation Service - Completely rewritten for new data structure
 class TranslationService {
     constructor() {
         this.currentLanguage = 'it';
-        this.availableLanguages = {};
-        this.translations = {};
-        this.fallbackTranslations = {};
+        this.defaultData = null;
+        this.languageData = null;
+        this.availableLanguages = [];
         this.isLoaded = false;
         
         this.init();
     }
 
     async init() {
+        console.log('🌍 [TRANSLATION] Initializing translation service...');
+        
         // Get language from localStorage or detect browser language
         this.currentLanguage = localStorage.getItem('app-language') || 
                               this.detectBrowserLanguage() || 'it';
         
-        await this.loadLanguages();
-        await this.loadTranslations();
+        // Wait for Firebase service
+        await this.waitForFirebaseService();
+        
+        // Load available languages
+        await this.loadAvailableLanguages();
+        
+        // Load default data and current language data
+        await this.loadData();
         
         this.isLoaded = true;
         console.log('🌍 [TRANSLATION] Service initialized for language:', this.currentLanguage);
+        
+        // Update UI
+        this.updateUILanguage();
+    }
+
+    async waitForFirebaseService() {
+        let attempts = 0;
+        const maxAttempts = 50;
+        
+        while (!window.firebaseService?.isInitialized && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
     }
 
     detectBrowserLanguage() {
@@ -29,110 +48,107 @@ class TranslationService {
         return browserLang;
     }
 
-    async loadLanguages() {
+    async loadAvailableLanguages() {
         try {
-            this.availableLanguages = await window.firebaseService.getLanguages();
-            console.log('🌍 [TRANSLATION] Loaded languages:', Object.keys(this.availableLanguages));
+            this.availableLanguages = await window.firebaseService.getAvailableLanguages();
+            console.log('🌍 [TRANSLATION] Available languages:', this.availableLanguages);
         } catch (error) {
-            console.error('🌍 [TRANSLATION] Error loading languages:', error);
-            this.availableLanguages = {
-                it: { name: 'Italiano', flag: '🇮🇹', direction: 'ltr', active: true, isDefault: true }
-            };
+            console.error('🌍 [TRANSLATION] Error loading available languages:', error);
+            this.availableLanguages = ['it'];
         }
     }
 
-    async loadTranslations(language = null) {
-        const targetLanguage = language || this.currentLanguage;
-        
+    async loadData() {
         try {
-            const translations = await window.firebaseService.getTranslations(targetLanguage);
+            // Load default data (products, categories structure)
+            this.defaultData = await window.firebaseService.getDefaultData();
             
-            if (language) {
-                this.translations[language] = translations;
-            } else {
-                this.translations[targetLanguage] = translations;
-            }
+            // Load current language data (translations)
+            this.languageData = await window.firebaseService.getLanguageData(this.currentLanguage);
             
-            console.log('🌍 [TRANSLATION] Loaded translations for:', targetLanguage);
+            console.log('🌍 [TRANSLATION] Data loaded for language:', this.currentLanguage);
         } catch (error) {
-            console.error('🌍 [TRANSLATION] Error loading translations:', error);
-            
-            // Create fallback translations
-            if (!this.translations[targetLanguage]) {
-                this.translations[targetLanguage] = this.createEmptyTranslationStructure();
-            }
+            console.error('🌍 [TRANSLATION] Error loading data:', error);
+            this.defaultData = { products: [], categories: [] };
+            this.languageData = window.firebaseService.getEmptyLanguageData();
         }
     }
 
-    createEmptyTranslationStructure() {
-        const structure = {};
+    // Main translation function
+    t(key, fallback = null) {
+        if (!this.languageData || !this.languageData.testi) {
+            return fallback || key;
+        }
         
-        Object.entries(TRANSLATION_KEYS).forEach(([category, keys]) => {
-            structure[category] = {};
-            keys.forEach(key => {
-                structure[category][key] = '';
-            });
-        });
+        const translation = this.languageData.testi[key];
+        if (translation) {
+            return translation;
+        }
         
-        return structure;
+        // Fallback to Italian if current language is not Italian
+        if (this.currentLanguage !== 'it') {
+            // Try to load Italian fallback (this could be cached)
+            // For now, return the fallback or key
+        }
+        
+        return fallback || key;
     }
 
-    // Get translation
-    t(category, key, language = null) {
-        const targetLanguage = language || this.currentLanguage;
-        const langTranslations = this.translations[targetLanguage] || {};
-        
-        if (langTranslations[category] && langTranslations[category][key]) {
-            return langTranslations[category][key];
+    // Get allergen translation
+    getAllergen(key) {
+        if (!this.languageData || !this.languageData.allergeni) {
+            return key;
         }
         
-        // Fallback to Italian if available
-        if (targetLanguage !== 'it' && this.translations.it) {
-            const fallback = this.translations.it[category];
-            if (fallback && fallback[key]) {
-                return fallback[key];
-            }
-        }
-        
-        // Return key as fallback
-        return key;
+        return this.languageData.allergeni[key] || key;
     }
 
     // Get product translation
-    getProductTranslation(product, field, language = null) {
-        const targetLanguage = language || this.currentLanguage;
-        
-        if (product.translations && product.translations[targetLanguage]) {
-            return product.translations[targetLanguage][field] || '';
+    getProduct(productId, field = 'name') {
+        if (!this.languageData || !this.languageData.products || !this.languageData.products[productId]) {
+            return '';
         }
         
-        // Fallback to Italian
-        if (targetLanguage !== 'it' && product.translations && product.translations.it) {
-            return product.translations.it[field] || '';
-        }
-        
-        return '';
+        return this.languageData.products[productId][field] || '';
     }
 
     // Get category translation
-    getCategoryTranslation(category, language = null) {
-        const targetLanguage = language || this.currentLanguage;
-        
-        if (category.translations && category.translations[targetLanguage]) {
-            return category.translations[targetLanguage];
+    getCategory(categoryId) {
+        if (!this.languageData || !this.languageData.categories) {
+            return categoryId;
         }
         
-        // Fallback to Italian
-        if (targetLanguage !== 'it' && category.translations && category.translations.it) {
-            return category.translations.it;
-        }
-        
-        return category.id;
+        return this.languageData.categories[categoryId] || categoryId;
     }
 
-    // Language management
+    // Get merged products (default data + translations)
+    getMergedProducts() {
+        if (!this.defaultData || !this.defaultData.products) {
+            return [];
+        }
+        
+        return this.defaultData.products.map(product => ({
+            ...product,
+            name: this.getProduct(product.id, 'name'),
+            description: this.getProduct(product.id, 'description')
+        }));
+    }
+
+    // Get merged categories (default data + translations)
+    getMergedCategories() {
+        if (!this.defaultData || !this.defaultData.categories) {
+            return [];
+        }
+        
+        return this.defaultData.categories.map(category => ({
+            ...category,
+            name: this.getCategory(category.id)
+        }));
+    }
+
+    // Change language
     async changeLanguage(language) {
-        if (!this.availableLanguages[language]) {
+        if (!this.availableLanguages.includes(language)) {
             console.warn('🌍 [TRANSLATION] Language not available:', language);
             return false;
         }
@@ -140,10 +156,8 @@ class TranslationService {
         this.currentLanguage = language;
         localStorage.setItem('app-language', language);
         
-        // Load translations if not already loaded
-        if (!this.translations[language]) {
-            await this.loadTranslations(language);
-        }
+        // Load new language data
+        await this.loadData();
         
         // Update UI
         this.updateUILanguage();
@@ -152,82 +166,99 @@ class TranslationService {
         return true;
     }
 
+    // Update UI language
     updateUILanguage() {
         // Update HTML lang attribute
         document.documentElement.lang = this.currentLanguage;
         
-        // Update text direction for RTL languages
-        const langData = this.availableLanguages[this.currentLanguage];
-        if (langData && langData.direction === 'rtl') {
-            document.body.dir = 'rtl';
-        } else {
-            document.body.dir = 'ltr';
+        // Update text direction
+        if (this.languageData && this.languageData.tagLingua) {
+            document.body.dir = this.languageData.tagLingua.direction || 'ltr';
         }
         
         // Update current language display
         const currentLangElement = document.getElementById('current-language');
-        if (currentLangElement && langData) {
-            currentLangElement.textContent = langData.flag || DEFAULT_LANGUAGE_FLAGS[this.currentLanguage] || '🌐';
+        const currentLangGameElement = document.getElementById('current-language-game');
+        
+        if (this.languageData && this.languageData.tagLingua) {
+            const flag = this.languageData.tagLingua.flag || '🌐';
+            if (currentLangElement) currentLangElement.innerHTML = flag;
+            if (currentLangGameElement) currentLangGameElement.innerHTML = flag;
         }
         
         // Update all translatable elements
         this.updateTranslatableElements();
     }
 
+    // Update elements with data-translate attribute
     updateTranslatableElements() {
-        // Update elements with data-translate attribute
         document.querySelectorAll('[data-translate]').forEach(element => {
-            const [category, key] = element.dataset.translate.split('.');
-            if (category && key) {
-                const translation = this.t(category, key);
-                if (translation) {
-                    if (element.tagName === 'INPUT' && element.type === 'text') {
-                        element.placeholder = translation;
-                    } else {
-                        element.textContent = translation;
-                    }
+            const key = element.dataset.translate;
+            const translation = this.t(key);
+            
+            if (translation && translation !== key) {
+                if (element.tagName === 'INPUT' && (element.type === 'text' || element.type === 'search')) {
+                    element.placeholder = translation;
+                } else {
+                    element.textContent = translation;
                 }
             }
         });
     }
 
     // Get available languages for UI
-    getAvailableLanguages() {
-        return Object.entries(this.availableLanguages)
-            .filter(([code, data]) => data.active !== false)
-            .map(([code, data]) => ({
-                code,
-                name: data.name,
-                flag: data.flag || DEFAULT_LANGUAGE_FLAGS[code] || '🌐',
-                direction: data.direction || 'ltr',
-                isDefault: data.isDefault || false
-            }));
+    getAvailableLanguagesForUI() {
+        return this.availableLanguages.map(langCode => {
+            // We need to load each language's tagLingua data
+            // For now, return basic info
+            return {
+                code: langCode,
+                name: langCode.toUpperCase(),
+                flag: this.getDefaultFlag(langCode)
+            };
+        });
+    }
+
+    getDefaultFlag(langCode) {
+        const flags = {
+            'it': '🇮🇹',
+            'en': '🇬🇧',
+            'fr': '🇫🇷',
+            'de': '🇩🇪',
+            'es': '🇪🇸',
+            'pt': '🇵🇹',
+            'ru': '🇷🇺',
+            'zh': '🇨🇳',
+            'ja': '🇯🇵',
+            'ar': '🇸🇦'
+        };
+        return flags[langCode] || '🌐';
     }
 
     // Admin methods
-    async saveTranslations(language, translations) {
+    async saveLanguageData(language, data) {
         try {
-            await window.firebaseService.saveTranslations(language, translations);
-            this.translations[language] = translations;
-            console.log('🌍 [TRANSLATION] Translations saved for:', language);
+            await window.firebaseService.saveLanguageData(language, data);
+            
+            // Reload if it's current language
+            if (language === this.currentLanguage) {
+                await this.loadData();
+                this.updateUILanguage();
+            }
+            
+            console.log('🌍 [TRANSLATION] Language data saved:', language);
             return true;
         } catch (error) {
-            console.error('🌍 [TRANSLATION] Error saving translations:', error);
+            console.error('🌍 [TRANSLATION] Error saving language data:', error);
             throw error;
         }
     }
 
-    async createLanguage(code, data) {
+    async createLanguage(languageCode, languageInfo) {
         try {
-            // Add to languages
-            this.availableLanguages[code] = data;
-            await window.firebaseService.saveLanguages(this.availableLanguages);
-            
-            // Create empty translation structure
-            const emptyTranslations = this.createEmptyTranslationStructure();
-            await this.saveTranslations(code, emptyTranslations);
-            
-            console.log('🌍 [TRANSLATION] Language created:', code);
+            await window.firebaseService.createLanguage(languageCode, languageInfo);
+            await this.loadAvailableLanguages();
+            console.log('🌍 [TRANSLATION] Language created:', languageCode);
             return true;
         } catch (error) {
             console.error('🌍 [TRANSLATION] Error creating language:', error);
@@ -235,21 +266,17 @@ class TranslationService {
         }
     }
 
-    async deleteLanguage(code) {
-        if (this.availableLanguages[code]?.isDefault) {
-            throw new Error('Cannot delete default language');
-        }
-        
+    async deleteLanguage(languageCode) {
         try {
-            // Remove from languages
-            delete this.availableLanguages[code];
-            await window.firebaseService.saveLanguages(this.availableLanguages);
+            await window.firebaseService.deleteLanguage(languageCode);
+            await this.loadAvailableLanguages();
             
-            // Delete translations
-            await window.firebaseService.deleteTranslations(code);
-            delete this.translations[code];
+            // If current language was deleted, switch to Italian
+            if (languageCode === this.currentLanguage) {
+                await this.changeLanguage('it');
+            }
             
-            console.log('🌍 [TRANSLATION] Language deleted:', code);
+            console.log('🌍 [TRANSLATION] Language deleted:', languageCode);
             return true;
         } catch (error) {
             console.error('🌍 [TRANSLATION] Error deleting language:', error);
@@ -257,47 +284,50 @@ class TranslationService {
         }
     }
 
-    // Export translations for specific language
-    async exportLanguageTranslations(language) {
+    async exportLanguage(languageCode) {
         try {
-            const translations = await window.firebaseService.getTranslations(language);
-            const exportData = {
-                language: language,
-                languageData: this.availableLanguages[language],
-                translations: translations,
-                exportDate: new Date().toISOString(),
-                version: '2.0'
-            };
-            
+            const exportData = await window.firebaseService.exportLanguage(languageCode);
+            console.log('🌍 [TRANSLATION] Language exported:', languageCode);
             return exportData;
         } catch (error) {
-            console.error('🌍 [TRANSLATION] Error exporting language translations:', error);
+            console.error('🌍 [TRANSLATION] Error exporting language:', error);
             throw error;
         }
     }
 
-    // Import translations for specific language
-    async importLanguageTranslations(data) {
+    async importLanguage(importData) {
         try {
-            if (!data.language || !data.translations) {
-                throw new Error('Invalid translation data format');
+            await window.firebaseService.importLanguage(importData);
+            await this.loadAvailableLanguages();
+            
+            // Reload if it's current language
+            if (importData.language === this.currentLanguage) {
+                await this.loadData();
+                this.updateUILanguage();
             }
             
-            // Update language data if provided
-            if (data.languageData) {
-                this.availableLanguages[data.language] = data.languageData;
-                await window.firebaseService.saveLanguages(this.availableLanguages);
-            }
-            
-            // Save translations
-            await this.saveTranslations(data.language, data.translations);
-            
-            console.log('🌍 [TRANSLATION] Language translations imported:', data.language);
+            console.log('🌍 [TRANSLATION] Language imported:', importData.language);
             return true;
         } catch (error) {
-            console.error('🌍 [TRANSLATION] Error importing language translations:', error);
+            console.error('🌍 [TRANSLATION] Error importing language:', error);
             throw error;
         }
+    }
+
+    // Get current language data for admin
+    getCurrentLanguageData() {
+        return this.languageData;
+    }
+
+    // Get default data for admin
+    getDefaultData() {
+        return this.defaultData;
+    }
+
+    // Reload data (useful after admin changes)
+    async reloadData() {
+        await this.loadData();
+        this.updateUILanguage();
     }
 }
 

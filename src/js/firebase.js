@@ -1,6 +1,6 @@
 import { FIREBASE_CONFIG, CACHE_KEYS, CACHE_DURATION } from '../utils/constants.js';
 
-// Firebase Service - Completely rewritten for new translation system
+// Firebase Service - Completely rewritten for new data structure
 class FirebaseService {
     constructor() {
         this.db = null;
@@ -45,109 +45,218 @@ class FirebaseService {
         console.log('🔥 [FIREBASE] Cache cleared:', type || 'all');
     }
 
-    // Languages management
-    async getLanguages() {
-        if (!this.isInitialized) return this.getDefaultLanguages();
+    // NEW STRUCTURE: Load default data (products, categories structure)
+    async getDefaultData() {
+        if (!this.isInitialized) return this.getEmptyDefaultData();
 
-        if (this.cache.has(CACHE_KEYS.LANGUAGES) && this.isCacheValid(CACHE_KEYS.LANGUAGES)) {
-            return this.cache.get(CACHE_KEYS.LANGUAGES);
+        if (this.cache.has(CACHE_KEYS.DEFAULT_DATA) && this.isCacheValid(CACHE_KEYS.DEFAULT_DATA)) {
+            return this.cache.get(CACHE_KEYS.DEFAULT_DATA);
         }
 
         try {
-            const doc = await this.db.collection('settings').doc('languages').get();
-            let languages = {};
+            const doc = await this.db.collection('data').doc('default').get();
+            let defaultData = {};
             
             if (doc.exists) {
-                languages = doc.data();
+                defaultData = doc.data();
             } else {
-                languages = this.getDefaultLanguages();
-                await this.saveLanguages(languages);
+                defaultData = this.getEmptyDefaultData();
+                await this.saveDefaultData(defaultData);
             }
             
-            this.setCache(CACHE_KEYS.LANGUAGES, languages);
-            console.log('🔥 [FIREBASE] Loaded languages:', Object.keys(languages));
-            return languages;
+            this.setCache(CACHE_KEYS.DEFAULT_DATA, defaultData);
+            console.log('🔥 [FIREBASE] Loaded default data:', Object.keys(defaultData));
+            return defaultData;
         } catch (error) {
-            console.error('🔥 [FIREBASE] Error loading languages:', error);
-            return this.getDefaultLanguages();
+            console.error('🔥 [FIREBASE] Error loading default data:', error);
+            return this.getEmptyDefaultData();
         }
     }
 
-    getDefaultLanguages() {
+    getEmptyDefaultData() {
         return {
-            it: { name: 'Italiano', flag: '🇮🇹', direction: 'ltr', active: true, isDefault: true },
-            en: { name: 'English', flag: '🇬🇧', direction: 'ltr', active: true, isDefault: false }
+            products: [],
+            categories: []
         };
     }
 
-    async saveLanguages(languages) {
+    async saveDefaultData(data) {
         if (!this.isInitialized) throw new Error('Firebase not initialized');
         
         try {
-            await this.db.collection('settings').doc('languages').set(languages);
-            this.clearCache(CACHE_KEYS.LANGUAGES);
-            console.log('🔥 [FIREBASE] Languages saved');
-            return languages;
+            await this.db.collection('data').doc('default').set(data);
+            this.clearCache(CACHE_KEYS.DEFAULT_DATA);
+            console.log('🔥 [FIREBASE] Default data saved');
+            return data;
         } catch (error) {
-            console.error('🔥 [FIREBASE] Error saving languages:', error);
+            console.error('🔥 [FIREBASE] Error saving default data:', error);
             throw error;
         }
     }
 
-    // Products management
-    async getProducts() {
-        if (!this.isInitialized) return [];
+    // NEW STRUCTURE: Load language data (translations, labels, etc.)
+    async getLanguageData(language) {
+        if (!this.isInitialized) return this.getEmptyLanguageData();
 
-        if (this.cache.has(CACHE_KEYS.PRODUCTS) && this.isCacheValid(CACHE_KEYS.PRODUCTS)) {
-            return this.cache.get(CACHE_KEYS.PRODUCTS);
+        const cacheKey = `${CACHE_KEYS.LANGUAGE_DATA}_${language}`;
+        if (this.cache.has(cacheKey) && this.isCacheValid(cacheKey)) {
+            return this.cache.get(cacheKey);
         }
 
         try {
-            const snapshot = await this.db.collection('products').get();
-            const products = [];
+            const doc = await this.db.collection('data').doc(language).get();
+            let languageData = {};
             
-            snapshot.forEach(doc => {
-                products.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
+            if (doc.exists) {
+                languageData = doc.data();
+            } else {
+                languageData = this.getEmptyLanguageData();
+                await this.saveLanguageData(language, languageData);
+            }
             
-            this.setCache(CACHE_KEYS.PRODUCTS, products);
-            console.log('🔥 [FIREBASE] Loaded', products.length, 'products');
-            return products;
+            this.setCache(cacheKey, languageData);
+            console.log('🔥 [FIREBASE] Loaded language data for:', language);
+            return languageData;
         } catch (error) {
-            console.error('🔥 [FIREBASE] Error loading products:', error);
-            return [];
+            console.error('🔥 [FIREBASE] Error loading language data:', error);
+            return this.getEmptyLanguageData();
         }
     }
 
-    async saveProduct(product) {
+    getEmptyLanguageData() {
+        return {
+            tagLingua: {
+                active: true,
+                flag: '🌐',
+                direction: 'ltr',
+                name: 'Unknown'
+            },
+            allergeni: {},
+            testi: {},
+            products: {},
+            categories: {}
+        };
+    }
+
+    async saveLanguageData(language, data) {
+        if (!this.isInitialized) throw new Error('Firebase not initialized');
+        
+        try {
+            await this.db.collection('data').doc(language).set(data);
+            this.clearCache(`${CACHE_KEYS.LANGUAGE_DATA}_${language}`);
+            console.log('🔥 [FIREBASE] Language data saved for:', language);
+            return data;
+        } catch (error) {
+            console.error('🔥 [FIREBASE] Error saving language data:', error);
+            throw error;
+        }
+    }
+
+    // Get all available languages
+    async getAvailableLanguages() {
+        if (!this.isInitialized) return ['it'];
+
+        if (this.cache.has(CACHE_KEYS.AVAILABLE_LANGUAGES) && this.isCacheValid(CACHE_KEYS.AVAILABLE_LANGUAGES)) {
+            return this.cache.get(CACHE_KEYS.AVAILABLE_LANGUAGES);
+        }
+
+        try {
+            const snapshot = await this.db.collection('data').get();
+            const languages = [];
+            
+            snapshot.forEach(doc => {
+                if (doc.id !== 'default') {
+                    languages.push(doc.id);
+                }
+            });
+            
+            if (languages.length === 0) {
+                languages.push('it'); // Default fallback
+            }
+            
+            this.setCache(CACHE_KEYS.AVAILABLE_LANGUAGES, languages);
+            console.log('🔥 [FIREBASE] Available languages:', languages);
+            return languages;
+        } catch (error) {
+            console.error('🔥 [FIREBASE] Error loading available languages:', error);
+            return ['it'];
+        }
+    }
+
+    // Add new product to default data
+    async addProduct(product) {
         if (!this.isInitialized) throw new Error('Firebase not initialized');
 
         try {
-            if (product.id && product.id !== 'new') {
-                await this.db.collection('products').doc(product.id).set(product);
-            } else {
-                const docRef = await this.db.collection('products').add(product);
-                product.id = docRef.id;
+            const defaultData = await this.getDefaultData();
+            defaultData.products.push(product);
+            await this.saveDefaultData(defaultData);
+
+            // Add empty translations for all languages
+            const languages = await this.getAvailableLanguages();
+            for (const lang of languages) {
+                const langData = await this.getLanguageData(lang);
+                if (!langData.products[product.id]) {
+                    langData.products[product.id] = {
+                        name: '',
+                        description: ''
+                    };
+                    await this.saveLanguageData(lang, langData);
+                }
             }
-            
-            this.clearCache(CACHE_KEYS.PRODUCTS);
-            console.log('🔥 [FIREBASE] Product saved:', product.id);
+
+            console.log('🔥 [FIREBASE] Product added:', product.id);
             return product;
         } catch (error) {
-            console.error('🔥 [FIREBASE] Error saving product:', error);
+            console.error('🔥 [FIREBASE] Error adding product:', error);
             throw error;
         }
     }
 
+    // Add new category to default data
+    async addCategory(category) {
+        if (!this.isInitialized) throw new Error('Firebase not initialized');
+
+        try {
+            const defaultData = await this.getDefaultData();
+            defaultData.categories.push(category);
+            await this.saveDefaultData(defaultData);
+
+            // Add empty translations for all languages
+            const languages = await this.getAvailableLanguages();
+            for (const lang of languages) {
+                const langData = await this.getLanguageData(lang);
+                if (!langData.categories[category.id]) {
+                    langData.categories[category.id] = '';
+                }
+                await this.saveLanguageData(lang, langData);
+            }
+
+            console.log('🔥 [FIREBASE] Category added:', category.id);
+            return category;
+        } catch (error) {
+            console.error('🔥 [FIREBASE] Error adding category:', error);
+            throw error;
+        }
+    }
+
+    // Delete product from default data and all languages
     async deleteProduct(productId) {
         if (!this.isInitialized) throw new Error('Firebase not initialized');
 
         try {
-            await this.db.collection('products').doc(productId).delete();
-            this.clearCache(CACHE_KEYS.PRODUCTS);
+            const defaultData = await this.getDefaultData();
+            defaultData.products = defaultData.products.filter(p => p.id !== productId);
+            await this.saveDefaultData(defaultData);
+
+            // Remove translations from all languages
+            const languages = await this.getAvailableLanguages();
+            for (const lang of languages) {
+                const langData = await this.getLanguageData(lang);
+                delete langData.products[productId];
+                await this.saveLanguageData(lang, langData);
+            }
+
             console.log('🔥 [FIREBASE] Product deleted:', productId);
         } catch (error) {
             console.error('🔥 [FIREBASE] Error deleting product:', error);
@@ -155,56 +264,23 @@ class FirebaseService {
         }
     }
 
-    // Categories management
-    async getCategories() {
-        if (!this.isInitialized) return [];
-
-        if (this.cache.has(CACHE_KEYS.CATEGORIES) && this.isCacheValid(CACHE_KEYS.CATEGORIES)) {
-            return this.cache.get(CACHE_KEYS.CATEGORIES);
-        }
-
-        try {
-            const snapshot = await this.db.collection('categories').get();
-            const categories = [];
-            
-            snapshot.forEach(doc => {
-                categories.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
-            
-            categories.sort((a, b) => (a.order || 0) - (b.order || 0));
-            
-            this.setCache(CACHE_KEYS.CATEGORIES, categories);
-            console.log('🔥 [FIREBASE] Loaded', categories.length, 'categories');
-            return categories;
-        } catch (error) {
-            console.error('🔥 [FIREBASE] Error loading categories:', error);
-            return [];
-        }
-    }
-
-    async saveCategory(category) {
-        if (!this.isInitialized) throw new Error('Firebase not initialized');
-
-        try {
-            await this.db.collection('categories').doc(category.id).set(category);
-            this.clearCache(CACHE_KEYS.CATEGORIES);
-            console.log('🔥 [FIREBASE] Category saved:', category.id);
-            return category;
-        } catch (error) {
-            console.error('🔥 [FIREBASE] Error saving category:', error);
-            throw error;
-        }
-    }
-
+    // Delete category from default data and all languages
     async deleteCategory(categoryId) {
         if (!this.isInitialized) throw new Error('Firebase not initialized');
 
         try {
-            await this.db.collection('categories').doc(categoryId).delete();
-            this.clearCache(CACHE_KEYS.CATEGORIES);
+            const defaultData = await this.getDefaultData();
+            defaultData.categories = defaultData.categories.filter(c => c.id !== categoryId);
+            await this.saveDefaultData(defaultData);
+
+            // Remove translations from all languages
+            const languages = await this.getAvailableLanguages();
+            for (const lang of languages) {
+                const langData = await this.getLanguageData(lang);
+                delete langData.categories[categoryId];
+                await this.saveLanguageData(lang, langData);
+            }
+
             console.log('🔥 [FIREBASE] Category deleted:', categoryId);
         } catch (error) {
             console.error('🔥 [FIREBASE] Error deleting category:', error);
@@ -212,160 +288,168 @@ class FirebaseService {
         }
     }
 
-    // New translation system
-    async getTranslations(language = null) {
-        if (!this.isInitialized) return {};
-
-        const cacheKey = language ? `${CACHE_KEYS.TRANSLATIONS}_${language}` : CACHE_KEYS.TRANSLATIONS;
-        
-        if (this.cache.has(cacheKey) && this.isCacheValid(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-
-        try {
-            let translations = {};
-            
-            if (language) {
-                // Get translations for specific language
-                const doc = await this.db.collection('translations').doc(language).get();
-                if (doc.exists) {
-                    translations = doc.data();
-                }
-            } else {
-                // Get all translations
-                const snapshot = await this.db.collection('translations').get();
-                snapshot.forEach(doc => {
-                    translations[doc.id] = doc.data();
-                });
-            }
-            
-            this.setCache(cacheKey, translations);
-            console.log('🔥 [FIREBASE] Loaded translations for:', language || 'all languages');
-            return translations;
-        } catch (error) {
-            console.error('🔥 [FIREBASE] Error loading translations:', error);
-            return {};
-        }
-    }
-
-    async saveTranslations(language, translations) {
+    // Create new language
+    async createLanguage(languageCode, languageInfo) {
         if (!this.isInitialized) throw new Error('Firebase not initialized');
 
         try {
-            await this.db.collection('translations').doc(language).set(translations);
-            this.clearCache(CACHE_KEYS.TRANSLATIONS);
-            this.clearCache(`${CACHE_KEYS.TRANSLATIONS}_${language}`);
-            console.log('🔥 [FIREBASE] Translations saved for:', language);
-            return translations;
+            const defaultData = await this.getDefaultData();
+            const newLanguageData = {
+                tagLingua: languageInfo,
+                allergeni: this.getDefaultAllergens(),
+                testi: this.getDefaultTexts(),
+                products: {},
+                categories: {}
+            };
+
+            // Add empty translations for all products and categories
+            defaultData.products.forEach(product => {
+                newLanguageData.products[product.id] = {
+                    name: '',
+                    description: ''
+                };
+            });
+
+            defaultData.categories.forEach(category => {
+                newLanguageData.categories[category.id] = '';
+            });
+
+            await this.saveLanguageData(languageCode, newLanguageData);
+            this.clearCache(CACHE_KEYS.AVAILABLE_LANGUAGES);
+
+            console.log('🔥 [FIREBASE] Language created:', languageCode);
+            return newLanguageData;
         } catch (error) {
-            console.error('🔥 [FIREBASE] Error saving translations:', error);
+            console.error('🔥 [FIREBASE] Error creating language:', error);
             throw error;
         }
     }
 
-    async deleteTranslations(language) {
+    // Delete language
+    async deleteLanguage(languageCode) {
         if (!this.isInitialized) throw new Error('Firebase not initialized');
 
         try {
-            await this.db.collection('translations').doc(language).delete();
-            this.clearCache(CACHE_KEYS.TRANSLATIONS);
-            this.clearCache(`${CACHE_KEYS.TRANSLATIONS}_${language}`);
-            console.log('🔥 [FIREBASE] Translations deleted for:', language);
+            await this.db.collection('data').doc(languageCode).delete();
+            this.clearCache(`${CACHE_KEYS.LANGUAGE_DATA}_${languageCode}`);
+            this.clearCache(CACHE_KEYS.AVAILABLE_LANGUAGES);
+            console.log('🔥 [FIREBASE] Language deleted:', languageCode);
         } catch (error) {
-            console.error('🔥 [FIREBASE] Error deleting translations:', error);
+            console.error('🔥 [FIREBASE] Error deleting language:', error);
             throw error;
         }
     }
 
-    // Export/Import functionality
-    async exportData(options = {}) {
+    // Export language data
+    async exportLanguage(languageCode) {
         if (!this.isInitialized) throw new Error('Firebase not initialized');
 
         try {
-            const exportData = {};
-            
-            if (options.includeProducts !== false) {
-                exportData.products = await this.getProducts();
-            }
-            
-            if (options.includeCategories !== false) {
-                exportData.categories = await this.getCategories();
-            }
-            
-            if (options.includeLanguages !== false) {
-                exportData.languages = await this.getLanguages();
-            }
-            
-            if (options.includeTranslations !== false) {
-                if (options.language) {
-                    exportData.translations = {};
-                    exportData.translations[options.language] = await this.getTranslations(options.language);
-                } else {
-                    exportData.translations = await this.getTranslations();
-                }
-            }
-            
-            exportData.exportDate = new Date().toISOString();
-            exportData.version = '2.0';
-            
-            console.log('🔥 [FIREBASE] Data exported successfully');
+            const languageData = await this.getLanguageData(languageCode);
+            const exportData = {
+                language: languageCode,
+                data: languageData,
+                exportDate: new Date().toISOString(),
+                version: '3.0'
+            };
+
+            console.log('🔥 [FIREBASE] Language exported:', languageCode);
             return exportData;
         } catch (error) {
-            console.error('🔥 [FIREBASE] Error exporting data:', error);
+            console.error('🔥 [FIREBASE] Error exporting language:', error);
             throw error;
         }
     }
 
-    async importData(data, options = {}) {
+    // Import language data
+    async importLanguage(importData) {
         if (!this.isInitialized) throw new Error('Firebase not initialized');
 
         try {
-            const batch = this.db.batch();
-            let imported = 0;
-
-            // Import languages
-            if (data.languages && options.includeLanguages !== false) {
-                const languagesRef = this.db.collection('settings').doc('languages');
-                batch.set(languagesRef, data.languages);
-                imported++;
+            if (!importData.language || !importData.data) {
+                throw new Error('Invalid import data format');
             }
 
-            // Import categories
-            if (data.categories && options.includeCategories !== false) {
-                for (const category of data.categories) {
-                    const categoryRef = this.db.collection('categories').doc(category.id);
-                    batch.set(categoryRef, category);
-                    imported++;
-                }
-            }
+            await this.saveLanguageData(importData.language, importData.data);
+            this.clearCache(CACHE_KEYS.AVAILABLE_LANGUAGES);
 
-            // Import products
-            if (data.products && options.includeProducts !== false) {
-                for (const product of data.products) {
-                    const productRef = this.db.collection('products').doc(product.id);
-                    batch.set(productRef, product);
-                    imported++;
-                }
-            }
-
-            // Import translations
-            if (data.translations && options.includeTranslations !== false) {
-                for (const [language, translations] of Object.entries(data.translations)) {
-                    const translationRef = this.db.collection('translations').doc(language);
-                    batch.set(translationRef, translations);
-                    imported++;
-                }
-            }
-
-            await batch.commit();
-            this.clearCache(); // Clear all cache
-            
-            console.log('🔥 [FIREBASE] Imported', imported, 'items');
-            return imported;
+            console.log('🔥 [FIREBASE] Language imported:', importData.language);
+            return true;
         } catch (error) {
-            console.error('🔥 [FIREBASE] Error importing data:', error);
+            console.error('🔥 [FIREBASE] Error importing language:', error);
             throw error;
         }
+    }
+
+    // Get default allergens structure
+    getDefaultAllergens() {
+        return {
+            glutine: 'Glutine',
+            crostacei: 'Crostacei',
+            uova: 'Uova',
+            pesce: 'Pesce',
+            arachidi: 'Arachidi',
+            soia: 'Soia',
+            latte: 'Latte',
+            frutta_guscio: 'Frutta a guscio',
+            sedano: 'Sedano',
+            senape: 'Senape',
+            sesamo: 'Semi di sesamo',
+            solfiti: 'Solfiti',
+            lupini: 'Lupini',
+            molluschi: 'Molluschi',
+            alcol: 'Alcol'
+        };
+    }
+
+    // Get default texts structure
+    getDefaultTexts() {
+        return {
+            search_placeholder: 'Cerca nel menu...',
+            loading: 'Caricamento...',
+            no_results: 'Nessun risultato',
+            no_results_desc: 'Non sono stati trovati prodotti che corrispondono ai tuoi criteri di ricerca.',
+            legend_title: 'Legenda',
+            legend_explanation: 'Clicca su un elemento per escludere i prodotti che lo contengono',
+            legend_allergens_title: 'Allergeni',
+            legend_characteristics_title: 'Caratteristiche',
+            filter_allergens: 'Filtra allergeni da evitare',
+            disclaimer_shared: 'Tutti i piatti sono preparati in un ambiente condiviso, di conseguenza non possiamo garantire che non ci siano contaminazioni',
+            disclaimer_service: 'Non si effettua servizio al tavolo. Ordinare al banco.',
+            review_title: 'Ti è piaciuta la tua esperienza?',
+            review_subtitle: 'Lascia una recensione e aiuta altri clienti!',
+            review_button: 'Lascia Recensione',
+            language_selector_title: 'Seleziona Lingua / Select Language',
+            game_title: 'Gioco del Dinosauro',
+            game_subtitle: 'Divertiti mentre aspetti il tuo ordine!',
+            game_invitation_title: 'Tempo di attesa?',
+            game_invitation_subtitle: 'Divertiti con il nostro gioco del dinosauro mentre aspetti!',
+            game_button_text: 'Gioca Ora',
+            instructions_title: 'Come Giocare',
+            instruction_1: 'Tocca lo schermo per saltare',
+            instruction_2: 'Evita gli ostacoli',
+            instruction_3: 'Ottieni il punteggio più alto',
+            instruction_4: 'Tocca per ricominciare',
+            score_label: 'Punteggio',
+            high_score_label: 'Record',
+            speed_label: 'Velocità',
+            game_controls_text: 'Tocca lo schermo per iniziare o saltare',
+            back_to_menu_text: 'Torna al Menu',
+            game_over_title: 'Game Over!',
+            final_score_text: 'Punteggio finale:',
+            restart_text: 'Gioca Ancora',
+            leaderboard_text: 'Classifica',
+            leaderboard_title: '🏆 Classifica',
+            leaderboard_main_title: '🏆 Classifica Migliori Punteggi',
+            no_scores_text: 'Nessun punteggio salvato',
+            save_score_label: 'Inserisci il tuo nome:',
+            player_name_placeholder: 'Il tuo nome',
+            save_score: 'Salva',
+            skip_save: 'Salta',
+            orientation_title: 'Ruota il dispositivo',
+            orientation_message: 'Per una migliore esperienza di gioco, ruota il tuo dispositivo in orizzontale',
+            continue_portrait_text: 'Continua in verticale'
+        };
     }
 }
 
