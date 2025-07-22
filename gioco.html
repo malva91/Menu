@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Il Barrino da Mario - Gioco del Dinosauro</title>
+    <meta name="description" content="Gioca mentre aspetti il tuo ordine al Barrino da Mario!">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="src/css/main.css">
+    <link rel="stylesheet" href="src/css/game.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="game-header-mobile">
+        <div class="container">
+            <h1 class="game-logo">IL BARRINO DA MARIO</h1>
+            <div class="game-header-controls">
+                <button id="language-btn-game" class="btn-language-game" aria-label="Seleziona lingua">
+                    <i class="fas fa-globe"></i>
+                    <span id="current-language-game">🇮🇹</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Orientation Notice for Portrait Mode -->
+    <div id="orientation-notice" class="orientation-notice">
+        <div class="orientation-content">
+            <div class="rotate-icon">📱</div>
+            <h2 id="orientation-title"></h2>
+            <p id="orientation-message"></p>
+            <small id="orientation-note"></small>
+            <button id="continue-portrait" class="btn-continue-portrait">
+                <span id="continue-portrait-text"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Game Container -->
+    <div class="game-container">
+        <div class="container">
+            <!-- Game Header -->
+            <div class="game-header">
+                <h1 class="game-title" id="game-title"></h1>
+                <p class="game-subtitle" id="game-subtitle"></p>
+            </div>
+
+            <!-- Game Instructions -->
+            <div class="game-instructions">
+                <h3 class="instructions-title" id="instructions-title"></h3>
+                <ul class="instructions-list">
+                    <li>
+                        <span class="instruction-icon">🦕</span>
+                        <span id="instruction-1"></span>
+                    </li>
+                    <li>
+                        <span class="instruction-icon">🌵</span>
+                        <span id="instruction-2"></span>
+                    </li>
+                    <li>
+                        <span class="instruction-icon">🏆</span>
+                        <span id="instruction-3"></span>
+                    </li>
+                    <li>
+                        <span class="instruction-icon">🎮</span>
+                        <span id="instruction-4"></span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Game Info -->
+            <div class="game-info">
+                <div class="info-card">
+                    <div class="info-label" id="score-label"></div>
+                    <div class="info-value" id="score">0</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label" id="high-score-label"></div>
+                    <div class="info-value" id="highScore">0</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label" id="speed-label"></div>
+                    <div class="info-value" id="speed">1x</div>
+                </div>
+            </div>
+
+            <!-- Game Canvas -->
+            <div class="game-canvas-container">
+                <canvas id="gameCanvas" width="600" height="180"></canvas>
+                
+                <!-- Game Over Screen -->
+                <div id="gameOver" class="game-over">
+                    <h3 id="game-over-title"></h3>
+                    <p class="final-score"><span id="final-score-text"></span> <span id="finalScore">0</span></p>
+                    
+                    <!-- Save Score Section -->
+                    <div id="save-score-section" class="save-score-section" style="display: none;">
+                        <div class="save-score-form">
+                            <label for="player-name" id="save-score-label"></label>
+                            <div class="random-name-suggestion">
+                                <span id="random-name-text"></span>
+                                <button type="button" id="use-random-name" class="random-name-btn"></button>
+                            </div>
+                            <input type="text" id="player-name" maxlength="20">
+                            <div class="game-over-buttons">
+                                <button id="save-score-btn" class="btn-save"></button>
+                                <button id="skip-save-btn" class="btn-skip"></button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Default buttons -->
+                    <div id="default-buttons" class="game-over-buttons">
+                        <button id="restartBtn" class="btn-restart">
+                            <span id="restart-text"></span>
+                        </button>
+                        <button id="leaderboard-btn" class="btn-leaderboard">
+                            <span id="leaderboard-text"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Controls -->
+            <div class="game-controls">
+                <p id="game-controls-text"></p>
+            </div>
+
+            <!-- Always Visible Leaderboard -->
+            <div class="game-leaderboard-section">
+                <div class="game-leaderboard-header">
+                    <h3 id="leaderboard-main-title"></h3>
+                </div>
+                <div class="game-leaderboard-container">
+                    <ol id="game-leaderboard-list" class="game-leaderboard-list">
+                        <li class="no-scores-game" id="no-scores-text"></li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Back to Menu -->
+            <div class="back-to-menu">
+                <a href="index.html" class="btn-back">
+                    <i class="fas fa-arrow-left"></i>
+                    <span id="back-to-menu-text"></span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Language Selector Modal -->
+    <div id="language-selector-game" class="language-selector-game hidden" role="dialog" aria-labelledby="language-title-game">
+        <div class="language-content">
+            <h2 id="language-title-game">Seleziona Lingua / Select Language</h2>
+            <div class="language-grid" id="language-grid-game">
+                <!-- Le lingue saranno caricate dinamicamente -->
+            </div>
+            <button class="close-btn" aria-label="Chiudi">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="leaderboard-modal" style="display: none;">
+        <div class="leaderboard-content">
+            <div class="leaderboard-header">
+                <h2 id="leaderboard-title">🏆 Classifica</h2>
+                <button class="close-leaderboard" aria-label="Chiudi">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="leaderboard-body">
+                <ol id="leaderboard-list" class="leaderboard-list">
+                    <!-- Leaderboard entries will be populated here -->
+                </ol>
+                <div id="no-scores-modal" class="no-scores" style="display: none;">
+                    <span id="no-scores-modal-text">Nessun punteggio salvato</span>
+                </div>
+            </div>
+            <div class="leaderboard-footer">
+                <button id="play-again-btn" class="btn-primary" data-translation="play_again">Gioca Ancora</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script type="module" src="src/js/firebase.js"></script>
+    <script type="module" src="src/js/game-config.js"></script>
+    <script type="module" src="src/js/game-engine.js"></script>
+</body>
+</html>

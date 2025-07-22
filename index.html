@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Il Barrino da Mario - Menu Digitale</title>
+    <meta name="description" content="Menu digitale del bar Il Barrino da Mario. Caffetteria, dolci, salato, bevande e molto altro.">
+    <meta name="keywords" content="bar, caffè, menu, Pisa, colazione, aperitivo">
+    <meta name="author" content="Il Barrino da Mario">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Il Barrino da Mario - Menu Digitale">
+    <meta property="og:description" content="Scopri il nostro menu completo: caffetteria, dolci, salato e bevande">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ilbarrinodamario.it">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#8B4513">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Il Barrino">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="src/css/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    
+    <!-- Flag Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.5.0/css/flag-icon.min.css">
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Restaurant",
+        "name": "Il Barrino da Mario",
+        "description": "Bar e caffetteria nel centro di Pisa",
+        "url": "https://ilbarrinodamario.it",
+        "telephone": "+39-050-123456",
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Via Example 123",
+            "addressLocality": "Pisa",
+            "postalCode": "56100",
+            "addressCountry": "IT"
+        },
+        "openingHours": "Mo-Su 06:00-20:00",
+        "servesCuisine": "Italian",
+        "priceRange": "€"
+    }
+    </script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">IL BARRINO DA MARIO</h1>
+            <div class="header-controls">
+                <button id="language-btn" class="btn-language" aria-label="Seleziona lingua">
+                    <i class="fas fa-globe"></i>
+                    <span id="current-language">🇮🇹</span>
+                </button>
+                <button id="filter-btn" class="btn-filter" aria-label="Filtra allergeni">
+                    <i class="fas fa-filter"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Search -->
+    <section class="search-container">
+        <div class="container">
+            <!-- Professional Disclaimer -->
+            <div class="disclaimer-banner">
+                <div class="disclaimer-content">
+                    <div class="disclaimer-item">
+                        <span class="disclaimer-icon">⚠️</span>
+                        <span class="disclaimer-text" id="disclaimer-shared">
+                            Tutti i piatti sono preparati in un ambiente condiviso, di conseguenza non possiamo garantire che non ci siano contaminazioni
+                        </span>
+                    </div>
+                    <div class="disclaimer-item">
+                        <span class="disclaimer-icon">❌</span>
+                        <span class="disclaimer-text" id="disclaimer-service">
+                            Non si effettua servizio al tavolo. Ordinare al banco.
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="search-box">
+                <input type="search" id="search-input" placeholder="Cerca nel menu..." aria-label="Cerca prodotti nel menu">
+                <button type="button" aria-label="Cerca">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Legend Section -->
+    <section class="legend-section">
+        <div class="container">
+            <div class="legend-header">
+                <h2 id="legend-title">Legenda</h2>
+                <p id="legend-explanation">Clicca su un elemento per escludere i prodotti che lo contengono</p>
+            </div>
+            <div class="legend-grid">
+                <div class="legend-category">
+                    <h3 id="legend-allergens-title">Allergeni</h3>
+                    <div class="legend-items">
+                        <div class="legend-item legend-filter" data-allergen="glutine">
+                            <span class="legend-icon">🌾</span>
+                            <span class="legend-text" data-translation="glutine">Glutine</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="crostacei">
+                            <span class="legend-icon">🦞</span>
+                            <span class="legend-text" data-translation="crostacei">Crostacei</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="uova">
+                            <span class="legend-icon">🥚</span>
+                            <span class="legend-text" data-translation="uova">Uova</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="pesce">
+                            <span class="legend-icon">🐟</span>
+                            <span class="legend-text" data-translation="pesce">Pesce</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="arachidi">
+                            <span class="legend-icon">🥜</span>
+                            <span class="legend-text" data-translation="arachidi">Arachidi</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="soia">
+                            <span class="legend-icon">🌿</span>
+                            <span class="legend-text" data-translation="soia">Soia</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="latte">
+                            <span class="legend-icon">🥛</span>
+                            <span class="legend-text" data-translation="latte">Latte</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="frutta_guscio">
+                            <span class="legend-icon">🌰</span>
+                            <span class="legend-text" data-translation="frutta_guscio">Frutta a guscio</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="sedano">
+                            <span class="legend-icon">🥬</span>
+                            <span class="legend-text" data-translation="sedano">Sedano</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="senape">
+                            <span class="legend-icon">🟡</span>
+                            <span class="legend-text" data-translation="senape">Senape</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="sesamo">
+                            <span class="legend-icon">⚪</span>
+                            <span class="legend-text" data-translation="sesamo">Semi di sesamo</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="solfiti">
+                            <span class="legend-icon">🧪</span>
+                            <span class="legend-text" data-translation="solfiti">Solfiti</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="lupini">
+                            <span class="legend-icon">🌕</span>
+                            <span class="legend-text" data-translation="lupini">Lupini</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="molluschi">
+                            <span class="legend-icon">🦑</span>
+                            <span class="legend-text" data-translation="molluschi">Molluschi</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-allergen="alcol">
+                            <span class="legend-icon">🍷</span>
+                            <span class="legend-text" data-translation="alcol">Alcol</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="legend-category">
+                    <h3 id="legend-characteristics-title">Caratteristiche</h3>
+                    <div class="legend-items">
+                        <div class="legend-item legend-filter" data-tag="maiale">
+                            <span class="legend-icon">🐷</span>
+                            <span class="legend-text" data-translation="maiale">Maiale</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-tag="pollo">
+                            <span class="legend-icon">🍗</span>
+                            <span class="legend-text" data-translation="pollo">Pollo</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-tag="vegetariano">
+                            <span class="legend-icon">🥦</span>
+                            <span class="legend-text" data-translation="vegetariano">Vegetariano</span>
+                        </div>
+                        <div class="legend-item legend-filter" data-tag="congelato">
+                            <span class="legend-icon">❄️</span>
+                            <span class="legend-text" data-translation="congelato">Prodotto congelato</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Game Invitation -->
+    <section class="game-invitation-section">
+        <div class="container">
+            <div class="game-invitation">
+                <div class="game-invitation-content">
+                    <div class="game-invitation-icon">
+                        <i class="fas fa-gamepad"></i>
+                    </div>
+                    <div class="game-invitation-text">
+                        <h3 id="game-invitation-title">Tempo di attesa?</h3>
+                        <p id="game-invitation-subtitle">Divertiti con il nostro gioco del dinosauro mentre aspetti!</p>
+                    </div>
+                    <a href="gioco.html" class="game-invitation-button">
+                        <span class="game-button-icon">🦕</span>
+                        <span id="game-button-text">Gioca Ora</span>
+                        <span class="game-button-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Category Navigation -->
+    <nav class="category-nav-container" aria-label="Navigazione categorie">
+        <div class="container">
+            <div id="category-accordion" class="category-accordion">
+                <!-- Le categorie saranno caricate dinamicamente -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Loading State -->
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Caricamento menu...</p>
+                <p><small>Connessione a Firebase in corso...</small></p>
+            </div>
+
+            <!-- No Results -->
+            <div id="no-results" class="no-results hidden">
+                <h2>Nessun risultato</h2>
+                <p>Non sono stati trovati prodotti che corrispondono ai tuoi criteri di ricerca.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Language Selector Modal -->
+    <div id="language-selector" class="language-selector hidden" role="dialog" aria-labelledby="language-title">
+        <div class="language-content">
+            <h2 id="language-title">Seleziona Lingua / Select Language</h2>
+            <div class="language-grid">
+                <!-- Le lingue saranno caricate dinamicamente -->
+            </div>
+            <button class="close-btn" aria-label="Chiudi">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Allergen Filter Modal -->
+    <div id="allergen-filter" class="allergen-filter hidden" role="dialog" aria-labelledby="filter-title">
+        <div class="filter-content">
+            <h2 id="filter-title">Filtra allergeni da evitare</h2>
+            <div class="allergen-grid">
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="glutine">
+                    <span class="allergen-icon">🌾</span>
+                    <span class="allergen-label">Glutine</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="crostacei">
+                    <span class="allergen-icon">🦞</span>
+                    <span class="allergen-label">Crostacei</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="uova">
+                    <span class="allergen-icon">🥚</span>
+                    <span class="allergen-label">Uova</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="pesce">
+                    <span class="allergen-icon">🐟</span>
+                    <span class="allergen-label">Pesce</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="arachidi">
+                    <span class="allergen-icon">🥜</span>
+                    <span class="allergen-label">Arachidi</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="soia">
+                    <span class="allergen-icon">🌿</span>
+                    <span class="allergen-label">Soia</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="latte">
+                    <span class="allergen-icon">🥛</span>
+                    <span class="allergen-label">Latte</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="frutta_guscio">
+                    <span class="allergen-icon">🌰</span>
+                    <span class="allergen-label">Frutta a guscio</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="sedano">
+                    <span class="allergen-icon">🥬</span>
+                    <span class="allergen-label">Sedano</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="senape">
+                    <span class="allergen-icon">🟡</span>
+                    <span class="allergen-label">Senape</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="sesamo">
+                    <span class="allergen-icon">⚪</span>
+                    <span class="allergen-label">Semi di sesamo</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="solfiti">
+                    <span class="allergen-icon">🧪</span>
+                    <span class="allergen-label">Solfiti</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="lupini">
+                    <span class="allergen-icon">🌕</span>
+                    <span class="allergen-label">Lupini</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="molluschi">
+                    <span class="allergen-icon">🦑</span>
+                    <span class="allergen-label">Molluschi</span>
+                </label>
+                <label class="allergen-checkbox">
+                    <input type="checkbox" data-allergen="alcol">
+                    <span class="allergen-icon">🍷</span>
+                    <span class="allergen-label">Alcol</span>
+                </label>
+            </div>
+            <button class="close-btn" aria-label="Chiudi">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <!-- Review Invitation -->
+            <div class="review-invitation">
+                <div class="review-content">
+                    <div class="review-icon">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="review-text">
+                        <p id="review-title">Ti è piaciuta la tua esperienza?</p>
+                        <p id="review-subtitle">Lascia una recensione e aiuta altri clienti!</p>
+                    </div>
+                    <a href="https://share.google/yD1Xn9coqAxDGsEJe" target="_blank" rel="noopener noreferrer" class="review-button">
+                        <span class="review-button-icon">
+                            <i class="fas fa-star"></i>
+                        </span>
+                        <span id="review-button-text">Lascia Recensione</span>
+                        <span class="review-button-icon">
+                            <i class="fas fa-arrow-right"></i>
+                        </span>
+                    </a>
+                </div>
+            </div>
+            
+            <div class="footer-info">
+                <p>&copy; 2025 Il Barrino da Mario</p>
+                <a href="admin.html" id="admin-btn" class="admin-link" aria-label="Pannello amministratore">
+                    <i class="fas fa-cog"></i>
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script type="module" src="src/js/firebase.js"></script>
+    <script type="module" src="src/js/menu-app.js"></script>
+
+</body>
+</html>

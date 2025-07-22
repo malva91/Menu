@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Il Barrino da Mario - Pannello Admin</title>
+    <link rel="stylesheet" href="src/css/main.css">
+    <link rel="stylesheet" href="src/css/admin.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    
+    <!-- Flag Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.5.0/css/flag-icon.min.css">
+</head>
+<body class="admin-body">
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-form">
+            <h1>Il Barrino da Mario</h1>
+            <h2>Pannello Amministratore</h2>
+            <form id="login-form" aria-label="Login amministratore">
+                <div class="form-group">
+                    <label for="admin-password">Password</label>
+                    <input type="password" id="admin-password" required 
+                           placeholder="Inserisci la password admin"
+                           aria-describedby="password-error">
+                    <div id="password-error" class="error-message" role="alert"></div>
+                </div>
+                <button type="submit" class="btn-primary" id="login-submit-btn">Accedi</button>
+            </form>
+            <a href="index.html" class="back-link">← Torna al menu</a>
+        </div>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="admin-panel" class="admin-panel hidden">
+        <header class="admin-header">
+            <div class="container">
+                <h1>Pannello Amministratore</h1>
+                <div class="admin-controls">
+                    <button id="add-product-btn" class="btn-primary">
+                        <i class="fas fa-plus"></i> Nuovo Prodotto
+                    </button>
+                    <button id="manage-categories-btn" class="btn-secondary">
+                        <i class="fas fa-folder"></i> Categorie
+                    </button>
+                    <button id="manage-languages-btn" class="btn-secondary">
+                        <i class="fas fa-globe"></i> Lingue
+                    </button>
+                    <button id="manage-translations-btn" class="btn-secondary">
+                        <i class="fas fa-language"></i> Traduzioni UI
+                    </button>
+                    <button id="manage-ui-translations-btn" class="btn-secondary">
+                        <i class="fas fa-globe-americas"></i> Traduzioni Interfaccia
+                    </button>
+                    <button id="manage-game-translations-btn" class="btn-secondary">
+                        <i class="fas fa-gamepad"></i> Traduzioni Gioco
+                    </button>
+                    <button id="import-btn" class="btn-secondary">
+                        <i class="fas fa-file-import"></i> Importa
+                    </button>
+                    <button id="export-btn" class="btn-secondary">
+                        <i class="fas fa-file-export"></i> Esporta
+                    </button>
+                    <button id="export-full-btn" class="btn-secondary">
+                        <i class="fas fa-database"></i> Esporta DB
+                    </button>
+                    <button id="logout-btn" class="btn-secondary">
+                        <i class="fas fa-sign-out-alt"></i> Esci
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="admin-content">
+            <div class="container">
+                <!-- Statistics -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Prodotti Totali</h3>
+                        <span id="total-products">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Prodotti Visibili</h3>
+                        <span id="visible-products">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Categorie</h3>
+                        <span id="total-categories">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Lingue</h3>
+                        <span id="total-languages">10</span>
+                    </div>
+                </div>
+
+                <!-- Filter and Search -->
+                <div class="admin-filters">
+                    <div class="filter-group">
+                        <label for="category-filter">Categoria:</label>
+                        <select id="category-filter">
+                            <option value="">Tutte le categorie</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="visibility-filter">Visibilità:</label>
+                        <select id="visibility-filter">
+                            <option value="">Tutti</option>
+                            <option value="visible">Visibili</option>
+                            <option value="hidden">Nascosti</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="admin-search">Cerca:</label>
+                        <input type="search" id="admin-search" placeholder="Cerca prodotti...">
+                    </div>
+                </div>
+
+                <!-- Products Table -->
+                <div class="products-table-container">
+                    <table class="products-table">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Categoria</th>
+                                <th>Prezzo</th>
+                                <th>Allergeni</th>
+                                <th>Visibile</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-table-body">
+                            <!-- I prodotti saranno caricati dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Loading State -->
+                <div id="admin-loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Caricamento dati admin...</p>
+                    <p><small>Connessione a Firebase in corso...</small></p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="product-modal" class="modal hidden" role="dialog" aria-labelledby="product-modal-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="product-modal-title">Nuovo Prodotto</h2>
+                <button class="close-btn" aria-label="Chiudi">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="product-form" aria-label="Modulo prodotto">
+                    <div class="form-group">
+                        <label for="product-id">ID Prodotto:</label>
+                        <input type="text" id="product-id" required 
+                               placeholder="es: cappuccino"
+                               pattern="[a-z0-9_\-]+"
+                               aria-describedby="id-help">
+                        <small id="id-help">Solo lettere minuscole, numeri, trattini e underscore</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="product-category">Categoria:</label>
+                        <select id="product-category" required>
+                            <!-- Le categorie saranno caricate dinamicamente -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="product-price">Prezzo (€):</label>
+                        <input type="number" id="product-price" required 
+                               min="0" step="0.01" placeholder="0.00">
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="product-visible">
+                            Prodotto visibile nel menu
+                        </label>
+                    </div>
+
+                    <!-- Allergeni -->
+                    <div class="form-group">
+                        <label>Allergeni:</label>
+                        <div class="allergen-checkboxes">
+                            <label><input type="checkbox" data-allergen="glutine"> 🌾 Glutine</label>
+                            <label><input type="checkbox" data-allergen="crostacei"> 🦞 Crostacei</label>
+                            <label><input type="checkbox" data-allergen="uova"> 🥚 Uova</label>
+                            <label><input type="checkbox" data-allergen="pesce"> 🐟 Pesce</label>
+                            <label><input type="checkbox" data-allergen="arachidi"> 🥜 Arachidi</label>
+                            <label><input type="checkbox" data-allergen="soia"> 🌿 Soia</label>
+                            <label><input type="checkbox" data-allergen="latte"> 🥛 Latte</label>
+                            <label><input type="checkbox" data-allergen="frutta_guscio"> 🌰 Frutta a guscio</label>
+                            <label><input type="checkbox" data-allergen="sedano"> 🥬 Sedano</label>
+                            <label><input type="checkbox" data-allergen="senape"> 🟡 Senape</label>
+                            <label><input type="checkbox" data-allergen="sesamo"> ⚪ Semi di sesamo</label>
+                            <label><input type="checkbox" data-allergen="solfiti"> 🧪 Solfiti</label>
+                            <label><input type="checkbox" data-allergen="lupini"> 🌕 Lupini</label>
+                            <label><input type="checkbox" data-allergen="molluschi"> 🦑 Molluschi</label>
+                            <label><input type="checkbox" data-allergen="alcol"> 🍷 Alcol</label>
+                        </div>
+                    </div>
+
+                    <!-- Tags -->
+                    <div class="form-group">
+                        <label>Caratteristiche:</label>
+                        <div class="tag-checkboxes">
+                            <label><input type="checkbox" data-tag="maiale"> 🐷 Maiale</label>
+                            <label><input type="checkbox" data-tag="pollo"> 🍗 Pollo</label>
+                            <label><input type="checkbox" data-tag="vegetariano"> 🥦 Vegetariano</label>
+                            <label><input type="checkbox" data-tag="congelato"> ❄️ Prodotto congelato</label>
+                        </div>
+                    </div>
+
+                    <!-- Traduzioni -->
+                    <div class="form-group">
+                        <label>Traduzioni:</label>
+                        <div class="translations-container">
+                            <div class="translation-item">
+                                <h4><span class="flag">🇮🇹</span> Italiano</h4>
+                                <input type="text" id="name-it" placeholder="Nome in italiano" required>
+                                <textarea id="description-it" placeholder="Descrizione in italiano" rows="2"></textarea>
+                            </div>
+                            <div class="translation-item">
+                                <h4><span class="flag">🇬🇧</span> English</h4>
+                                <input type="text" id="name-en" placeholder="Name in English">
+                                <textarea id="description-en" placeholder="Description in English" rows="2"></textarea>
+                            </div>
+                            <div class="translation-item">
+                                <h4><span class="flag">🇫🇷</span> Français</h4>
+                                <input type="text" id="name-fr" placeholder="Nom en français">
+                                <textarea id="description-fr" placeholder="Description en français" rows="2"></textarea>
+                            </div>
+                            <div class="translation-item">
+                                <h4><span class="flag">🇩🇪</span> Deutsch</h4>
+                                <input type="text" id="name-de" placeholder="Name auf Deutsch">
+                                <textarea id="description-de" placeholder="Beschreibung auf Deutsch" rows="2"></textarea>
+                            </div>
+                            <div class="translation-item">
+                                <h4><span class="flag">🇪🇸</span> Español</h4>
+                                <input type="text" id="name-es" placeholder="Nombre en español">
+                                <textarea id="description-es" placeholder="Descripción en español" rows="2"></textarea>
+                            </div>
+                            <div class="translation-item">
+                                <h4><span class="flag">🇵🇹</span> Português</h4>
+                                <input type="text" id="name-pt" placeholder="Nome em português">
+                                <textarea id="description-pt" placeholder="Descrição em português" rows="2"></textarea>
+                            </div>
+                            <div class="translation-item">
+                                <h4><span class="flag">🇷🇺</span> Русский</h4>
+                                <input type="text" id="name-ru" placeholder="Название на русском">
+                                <textarea id="description-ru" placeholder="Описание на русском" rows="2"></textarea>
+                            </div>
+                            <div class="translation-item">
+                                <h4><span class="flag">🇨🇳</span> 中文</h4>
+                                <input type="text" id="name-zh" placeholder="中文名称">
+                                <textarea id="description-zh" placeholder="中文描述" rows="2"></textarea>
+                            </div>
+                            <div class="translation-item">
+                                <h4><span class="flag">🇯🇵</span> 日本語</h4>
+                                <input type="text" id="name-ja" placeholder="日本語名">
+                                <textarea id="description-ja" placeholder="日本語の説明" rows="2"></textarea>
+                            </div>
+                            <div class="translation-item">
+                                <h4><span class="flag">🇸🇦</span> العربية</h4>
+                                <input type="text" id="name-ar" placeholder="الاسم بالعربية" dir="rtl">
+                                <textarea id="description-ar" placeholder="الوصف بالعربية" rows="2" dir="rtl"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Salva Prodotto</button>
+                        <button type="button" class="btn-secondary" id="cancel-product">Annulla</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import/Export Modals -->
+    <div id="import-modal" class="modal hidden" role="dialog" aria-labelledby="import-modal-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="import-modal-title">Importa Prodotti</h2>
+                <button class="close-btn" aria-label="Chiudi">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="import-form">
+                    <div class="form-group">
+                        <label for="import-file">Seleziona file JSON:</label>
+                        <input type="file" id="import-file" accept=".json" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="import-language">Lingua del file:</label>
+                        <select id="import-language" required>
+                            <option value="">Seleziona lingua</option>
+                            <!-- Le lingue saranno caricate dinamicamente -->
+                        </select>
+                    </div>
+                    <div id="import-preview" class="import-preview hidden">
+                        <h3>Anteprima importazione:</h3>
+                        <div id="import-preview-content"></div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Importa</button>
+                        <button type="button" class="btn-secondary" id="cancel-import">Annulla</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="export-modal" class="modal hidden" role="dialog" aria-labelledby="export-modal-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="export-modal-title">Esporta Prodotti</h2>
+                <button class="close-btn" aria-label="Chiudi">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="export-form">
+                    <div class="form-group">
+                        <label for="export-language">Lingua da esportare:</label>
+                        <select id="export-language" required>
+                            <option value="">Seleziona lingua</option>
+                            <!-- Le lingue saranno caricate dinamicamente -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="export-category">Categoria (opzionale):</label>
+                        <select id="export-category">
+                            <option value="">Tutte le categorie</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Esporta</button>
+                        <button type="button" class="btn-secondary" id="cancel-export">Annulla</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Database Export Modal -->
+    <div id="export-full-modal" class="modal hidden" role="dialog" aria-labelledby="export-full-modal-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="export-full-modal-title">Esporta Database Completo</h2>
+                <button class="close-btn" aria-label="Chiudi">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="export-full-options">
+                    <h3>Seleziona cosa esportare:</h3>
+                    
+                    <div class="export-sections">
+                        <label class="export-section-checkbox">
+                            <input type="checkbox" id="export-products" checked>
+                            <span class="export-section-label">
+                                <i class="fas fa-utensils"></i>
+                                <strong>Prodotti</strong>
+                                <small>Tutti i prodotti con traduzioni, allergeni e tag</small>
+                            </span>
+                        </label>
+                        
+                        <label class="export-section-checkbox">
+                            <input type="checkbox" id="export-categories" checked>
+                            <span class="export-section-label">
+                                <i class="fas fa-folder"></i>
+                                <strong>Categorie</strong>
+                                <small>Tutte le categorie con traduzioni e ordinamento</small>
+                            </span>
+                        </label>
+                        
+                        <label class="export-section-checkbox">
+                            <input type="checkbox" id="export-translations" checked>
+                            <span class="export-section-label">
+                                <i class="fas fa-globe"></i>
+                                <strong>Traduzioni</strong>
+                                <small>Tutte le traduzioni UI e configurazione lingue</small>
+                            </span>
+                        </label>
+                    </div>
+                    
+                    <div class="export-format">
+                        <h4>Formato esportazione:</h4>
+                        <label class="format-option">
+                            <input type="radio" name="export-format" value="structured" checked>
+                            <span>Strutturato (per backup/ripristino)</span>
+                        </label>
+                        <label class="format-option">
+                            <input type="radio" name="export-format" value="flat">
+                            <span>Piatto (per analisi/elaborazione)</span>
+                        </label>
+                    </div>
+                    
+                    <div class="export-preview" id="export-preview-full">
+                        <h4>Anteprima esportazione:</h4>
+                        <div class="preview-stats" id="preview-stats-full">
+                            <div class="stat-item">
+                                <span class="stat-label">Prodotti:</span>
+                                <span class="stat-value" id="preview-products-count">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Categorie:</span>
+                                <span class="stat-value" id="preview-categories-count">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Lingue:</span>
+                                <span class="stat-value" id="preview-languages-count">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button id="export-full-execute" class="btn-primary">
+                        <i class="fas fa-download"></i> Esporta Database
+                    </button>
+                    <button type="button" class="btn-secondary" id="cancel-export-full">Annulla</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Categories Management Modal -->
+    <div id="categories-modal" class="modal hidden" role="dialog" aria-labelledby="categories-modal-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="categories-modal-title">Gestione Categorie</h2>
+                <button class="close-btn" aria-label="Chiudi">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="categories-actions">
+                    <button id="add-category-btn" class="btn-primary">
+                        <i class="fas fa-plus"></i> Nuova Categoria
+                    </button>
+                </div>
+                
+                <div class="categories-list" id="categories-list">
+                    <!-- Le categorie saranno caricate dinamicamente -->
+                </div>
+                
+                <!-- Category Form -->
+                <div id="category-form-container" class="hidden">
+                    <h3 id="category-form-title">Nuova Categoria</h3>
+                    <form id="category-form">
+                        <div class="form-group">
+                            <label for="category-id">ID Categoria:</label>
+                            <input type="text" id="category-id" required 
+                                   placeholder="es: nuova_categoria"
+                                   pattern="[a-z0-9_\-]+"
+                                   aria-describedby="category-id-help">
+                            <small id="category-id-help">Solo lettere minuscole, numeri, trattini e underscore</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="category-order">Ordine:</label>
+                            <input type="number" id="category-order" required min="1" value="1">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="category-visible" checked>
+                                Categoria visibile nel menu
+                            </label>
+                        </div>
+                        
+                        <!-- Category Translations -->
+                        <div class="form-group">
+                            <label>Traduzioni:</label>
+                            <div class="translations-container">
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇮🇹</span> Italiano</h4>
+                                    <input type="text" id="category-name-it" placeholder="Nome in italiano" required>
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇬🇧</span> English</h4>
+                                    <input type="text" id="category-name-en" placeholder="Name in English">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇫🇷</span> Français</h4>
+                                    <input type="text" id="category-name-fr" placeholder="Nom en français">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇩🇪</span> Deutsch</h4>
+                                    <input type="text" id="category-name-de" placeholder="Name auf Deutsch">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇪🇸</span> Español</h4>
+                                    <input type="text" id="category-name-es" placeholder="Nombre en español">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇵🇹</span> Português</h4>
+                                    <input type="text" id="category-name-pt" placeholder="Nome em português">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇷🇺</span> Русский</h4>
+                                    <input type="text" id="category-name-ru" placeholder="Название на русском">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇨🇳</span> 中文</h4>
+                                    <input type="text" id="category-name-zh" placeholder="中文名称">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇯🇵</span> 日本語</h4>
+                                    <input type="text" id="category-name-ja" placeholder="日本語名">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇸🇦</span> العربية</h4>
+                                    <input type="text" id="category-name-ar" placeholder="الاسم بالعربية" dir="rtl">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary">Salva Categoria</button>
+                            <button type="button" class="btn-secondary" id="cancel-category">Annulla</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Languages Management Modal -->
+    <div id="languages-modal" class="modal hidden" role="dialog" aria-labelledby="languages-modal-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="languages-modal-title">Gestione Lingue</h2>
+                <button class="close-btn" aria-label="Chiudi">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="languages-actions">
+                    <button id="add-language-btn" class="btn-primary">
+                        <i class="fas fa-plus"></i> Nuova Lingua
+                    </button>
+                </div>
+                
+                <div class="languages-list" id="languages-list">
+                    <!-- Le lingue saranno caricate dinamicamente -->
+                </div>
+                
+                <!-- Language Form -->
+                <div id="language-form-container" class="hidden">
+                    <h3 id="language-form-title">Nuova Lingua</h3>
+                    <form id="language-form">
+                        <div class="form-group">
+                            <label for="language-code">Codice Lingua:</label>
+                            <input type="text" id="language-code" required 
+                                   placeholder="es: it, en, fr"
+                                   pattern="[a-z]{2,3}"
+                                   maxlength="3"
+                                   aria-describedby="language-code-help">
+                            <small id="language-code-help">Codice ISO 639-1 (2-3 lettere minuscole)</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="language-name">Nome Lingua:</label>
+                            <input type="text" id="language-name" required 
+                                   placeholder="es: Italiano, English, Français">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="language-flag">Bandiera (Emoji):</label>
+                            <input type="text" id="language-flag" required 
+                                   placeholder="es: 🇮🇹 o <span class='flag-icon flag-icon-it'></span>"
+                                   aria-describedby="flag-help">
+                            <small id="flag-help">Puoi usare emoji (🇮🇹) o HTML con flag-icon-css (&lt;span class="flag-icon flag-icon-it"&gt;&lt;/span&gt;)</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="language-direction">Direzione Testo:</label>
+                            <select id="language-direction" required>
+                                <option value="ltr">Sinistra → Destra (LTR)</option>
+                                <option value="rtl">Destra ← Sinistra (RTL)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="language-active" checked>
+                                Lingua attiva nel menu
+                            </label>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary">Salva Lingua</button>
+                            <button type="button" class="btn-secondary" id="cancel-language">Annulla</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Translations Management Modal -->
+    <div id="translations-modal" class="modal hidden" role="dialog" aria-labelledby="translations-modal-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="translations-modal-title">Gestione Traduzioni</h2>
+                <button class="close-btn" aria-label="Chiudi">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Translation Category Selector -->
+                <div class="translation-category-selector">
+                    <h3>Seleziona Categoria Traduzioni</h3>
+                    <div class="category-buttons">
+                        <button class="btn-category active" data-category="ui">
+                            <i class="fas fa-desktop"></i> Interfaccia Utente
+                        </button>
+                        <button class="btn-category" data-category="game">
+                            <i class="fas fa-gamepad"></i> Gioco
+                        </button>
+                        <button class="btn-category" data-category="allergens">
+                            <i class="fas fa-exclamation-triangle"></i> Allergeni
+                        </button>
+                        <button class="btn-category" data-category="tags">
+                            <i class="fas fa-tags"></i> Caratteristiche
+                        </button>
+                        <button class="btn-category" data-category="categories">
+                            <i class="fas fa-folder"></i> Categorie
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="translations-actions">
+                    <button id="add-translation-key-btn" class="btn-primary">
+                        <i class="fas fa-plus"></i> Nuova Chiave
+                    </button>
+                    <button id="bulk-translate-btn" class="btn-secondary">
+                        <i class="fas fa-magic"></i> Traduzione Automatica
+                    </button>
+                    <button id="export-translations-btn" class="btn-secondary">
+                        <i class="fas fa-download"></i> Esporta Categoria
+                    </button>
+                    <button id="import-translations-btn" class="btn-secondary">
+                        <i class="fas fa-upload"></i> Importa Categoria
+                    </button>
+                </div>
+                
+                <div class="translations-search">
+                    <input type="search" id="translations-search" placeholder="Cerca chiave di traduzione...">
+                    <select id="language-filter">
+                        <option value="">Tutte le lingue</option>
+                        <option value="missing">Solo traduzioni mancanti</option>
+                    </select>
+                </div>
+                
+                <div class="translations-list" id="translations-list">
+                    <!-- Le traduzioni saranno caricate dinamicamente -->
+                </div>
+                
+                <!-- Translation Form -->
+                <div id="translation-form-container" class="hidden">
+                    <h3 id="translation-form-title">Nuova Traduzione</h3>
+                    <form id="translation-form">
+                        <div class="form-group">
+                            <label for="translation-key">Chiave Traduzione:</label>
+                            <input type="text" id="translation-key" required 
+                                   placeholder="es: game_title, search_placeholder"
+                                   pattern="[a-z0-9_]+"
+                                   aria-describedby="translation-key-help">
+                            <small id="translation-key-help">Solo lettere minuscole, numeri e underscore</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="translation-category">Categoria:</label>
+                            <select id="translation-category" required>
+                                <option value="ui">UI Generale</option>
+                                <option value="menu">Menu</option>
+                                <option value="game">Gioco</option>
+                                <option value="admin">Admin</option>
+                                <option value="allergens">Allergeni</option>
+                                <option value="tags">Tag Prodotti</option>
+                                <option value="categories">Categorie</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Translation Values -->
+                        <div class="form-group">
+                            <label>Traduzioni:</label>
+                            <div class="translations-container">
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇮🇹</span> Italiano</h4>
+                                    <input type="text" id="translation-value-it" placeholder="Traduzione in italiano" required>
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇬🇧</span> English</h4>
+                                    <input type="text" id="translation-value-en" placeholder="Translation in English">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇫🇷</span> Français</h4>
+                                    <input type="text" id="translation-value-fr" placeholder="Traduction en français">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇩🇪</span> Deutsch</h4>
+                                    <input type="text" id="translation-value-de" placeholder="Übersetzung auf Deutsch">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇪🇸</span> Español</h4>
+                                    <input type="text" id="translation-value-es" placeholder="Traducción en español">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇵🇹</span> Português</h4>
+                                    <input type="text" id="translation-value-pt" placeholder="Tradução em português">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇷🇺</span> Русский</h4>
+                                    <input type="text" id="translation-value-ru" placeholder="Перевод на русском">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇨🇳</span> 中文</h4>
+                                    <input type="text" id="translation-value-zh" placeholder="中文翻译">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇯🇵</span> 日本語</h4>
+                                    <input type="text" id="translation-value-ja" placeholder="日本語翻訳">
+                                </div>
+                                <div class="translation-item">
+                                    <h4><span class="flag">🇸🇦</span> العربية</h4>
+                                    <input type="text" id="translation-value-ar" placeholder="الترجمة بالعربية" dir="rtl">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary">Salva Traduzione</button>
+                            <button type="button" class="btn-secondary" id="cancel-translation">Annulla</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script type="module" src="src/js/firebase.js"></script>
+    <script type="module" src="src/js/admin.js"></script>
+</body>
+</html>
