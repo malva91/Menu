@@ -43,26 +43,45 @@ class AdminPanel {
     async handleLogin() {
         const password = document.getElementById('admin-password').value;
         const errorElement = document.getElementById('password-error');
+        const submitBtn = document.getElementById('login-submit-btn');
         
         // Clear previous errors
         errorElement.textContent = '';
         errorElement.classList.remove('show');
         
+        // Disable submit button during login
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Accesso...';
+        
         if (password === 'barrino2025') {
-            sessionStorage.setItem('admin-logged-in', 'true');
-            this.isLoggedIn = true;
-            
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('admin-panel').classList.remove('hidden');
-            
-            await this.initAdminPanel();
+            try {
+                sessionStorage.setItem('admin-logged-in', 'true');
+                this.isLoggedIn = true;
+                
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('admin-panel').classList.remove('hidden');
+                
+                await this.initAdminPanel();
+            } catch (error) {
+                console.error('⚙️ [ADMIN] Error initializing admin panel:', error);
+                errorElement.textContent = 'Errore nell\'inizializzazione del pannello admin';
+                errorElement.classList.add('show');
+                
+                // Reset login state
+                sessionStorage.removeItem('admin-logged-in');
+                this.isLoggedIn = false;
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('admin-panel').classList.add('hidden');
+            }
         } else {
             errorElement.textContent = 'Password non corretta';
             errorElement.classList.add('show');
-            
-            // Clear password field
-            document.getElementById('admin-password').value = '';
         }
+        
+        // Re-enable submit button and clear password
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Accedi';
+        document.getElementById('admin-password').value = '';
     }
 
     async initAdminPanel() {
@@ -85,11 +104,15 @@ class AdminPanel {
 
     async waitForServices() {
         let attempts = 0;
-        const maxAttempts = 100;
+        const maxAttempts = 50;
         
-        while ((!window.firebaseService?.isInitialized || !window.translationService?.isLoaded) && attempts < maxAttempts) {
+        while ((!window.firebaseService?.isInitialized) && attempts < maxAttempts) {
             await new Promise(resolve => setTimeout(resolve, 100));
             attempts++;
+        }
+        
+        if (!window.firebaseService?.isInitialized) {
+            throw new Error('Firebase service not available');
         }
     }
 
