@@ -1,93 +1,69 @@
-// Game Engine - Updated for new translation system
-import { GAME_CONFIG, GameUtils, spriteLoader, initializeSprites, getRandomPlayerName } from './game-config.js';
+import { GAME_CONFIG, spriteLoader, initializeSprites, GameUtils, getRandomPlayerName } from './game-config.js';
 
-class GameEngine {
+// Dinosaur Game Engine - Versione Mario del Barrino
+class DinosaurGame {
     constructor() {
         this.canvas = null;
         this.ctx = null;
-        this.gameState = GAME_CONFIG.states.WAITING;
+        
+        // Game state
+        this.currentState = GAME_CONFIG.states.WAITING;
         this.score = 0;
-        this.highScore = 0;
-        this.speed = GAME_CONFIG.physics.initialSpeed;
-        this.frameCount = 0;
-        this.lastJumpTime = 0;
+        this.highScore = this.loadHighScore();
+        this.distanceRan = 0;
+        this.currentSpeed = GAME_CONFIG.physics.initialSpeed;
         
         // Game objects
         this.player = null;
+        this.horizon = null;
+        this.distanceMeter = null;
+        this.gameOverPanel = null;
+        
+        // Collections
         this.obstacles = [];
         this.powerUps = [];
         this.clouds = [];
-        this.ground = null;
+        
+        // Timing
+        this.time = 0;
+        this.runningTime = 0;
+        this.msPerFrame = 1000 / 60; // 60 FPS
+        this.lastObstacleTime = 0;
+        this.lastPowerUpTime = 0;
+        
+        // Input handling
+        this.activated = false;
+        this.crashed = false;
+        this.paused = false;
+        this.inverted = false;
+        this.invertTimer = 0;
         
         // Animation
-        this.animationId = null;
-        this.lastObstacleSpawn = 0;
-        this.lastPowerUpSpawn = 0;
+        this.raqId = 0;
+        this.playCount = 0;
         
-        // Sprites and animation
-        this.playerAnimationFrame = 0;
-        this.lastPlayerAnimationTime = 0;
+        // Sprites loaded flag
+        this.spritesLoaded = false;
         
         // Mobile support
         this.isMobile = GameUtils.isMobile();
-        this.isPortraitAllowed = false;
+        
+        // Orientation handling
+        this.orientationNotice = null;
         
         this.init();
     }
-    
+
     async init() {
-        console.log('🎮 [GAME] Initializing game engine...');
+        console.log('🦕 [GAME] Initializing Mario game...');
         
-        // Wait for translation service
-        await this.waitForTranslationService();
+        // Initialize translations first
+        await this.initializeTranslations();
         
-        // Initialize canvas
-        this.initCanvas();
-        
-        // Initialize game objects
-        this.initGameObjects();
-        
-        // Load sprites
-        await initializeSprites();
-        
-        // Initialize controls
-        this.initControls();
-        
-        // Load high score
-        this.loadHighScore();
-        
-        // Handle orientation
-        this.handleOrientation();
-        
-        // Update UI with translations
-        this.updateUITranslations();
-        
-        // Start game loop
-        this.gameLoop();
-        
-        console.log('🎮 [GAME] Game engine initialized successfully');
-    }
-    
-    async waitForTranslationService() {
-        let attempts = 0;
-        const maxAttempts = 50;
-        
-        while (!window.translationService?.isLoaded && attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            attempts++;
-        }
-    }
-    
-    updateUITranslations() {
-        if (window.translationService) {
-            window.translationService.updateTranslatableElements();
-        }
-    }
-    
-    initCanvas() {
+        // Get canvas and context
         this.canvas = document.getElementById('gameCanvas');
         if (!this.canvas) {
-            console.error('🎮 [GAME] Canvas element not found');
+            console.error('🦕 [GAME] Canvas not found!');
             return;
         }
         
@@ -97,787 +73,1506 @@ class GameEngine {
         this.canvas.width = GAME_CONFIG.canvas.width;
         this.canvas.height = GAME_CONFIG.canvas.height;
         
-        console.log('🎮 [GAME] Canvas initialized:', this.canvas.width, 'x', this.canvas.height);
+        // Setup orientation handling
+        this.setupOrientationHandling();
+        
+        // Load sprites
+        this.spritesLoaded = await initializeSprites();
+        
+        // Initialize game objects
+        this.initializeGameObjects();
+        
+        // Setup event listeners
+        this.setupEventListeners();
+        
+        // Setup language selector events
+        this.setupLanguageSelectorEvents();
+        
+        // Start the game loop
+        this.startGame();
+        
+        // Initialize leaderboard display
+        this.updateGameLeaderboardDisplay();
+        
+        console.log('🦕 [GAME] Game initialized successfully!');
     }
-    
-    initGameObjects() {
-        // Initialize player
-        this.player = {
-            x: GAME_CONFIG.player.x,
-            y: GAME_CONFIG.player.y,
-            width: GAME_CONFIG.player.width,
-            height: GAME_CONFIG.player.height,
-            velocityY: 0,
-            isJumping: false,
-            isOnGround: true
-        };
-        
-        // Initialize ground
-        this.ground = {
-            x: GAME_CONFIG.ground.x,
-            y: GAME_CONFIG.ground.y,
-            width: GAME_CONFIG.ground.width,
-            height: GAME_CONFIG.ground.height
-        };
-        
-        // Initialize clouds
-        this.initClouds();
-        
-        console.log('🎮 [GAME] Game objects initialized');
+
+    setupLanguageSelectorEvents() {
+        // Language selector button
+        document.getElementById('language-btn-game')?.addEventListener('click', () => {
+            this.toggleLanguageSelector();
+        });
+
+        // Close language selector
+        document.querySelector('#language-selector-game .close-btn')?.addEventListener('click', () => {
+            this.hideLanguageSelector();
+        });
+
+        // Close modals on outside click
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('language-selector-game')) {
+                this.hideLanguageSelector();
+            }
+        });
+
+        // Prevent modal close when clicking inside
+        document.querySelector('#language-selector-game .language-content')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.hideLanguageSelector();
+            }
+        });
     }
-    
-    initClouds() {
-        this.clouds = [];
-        for (let i = 0; i < GAME_CONFIG.clouds.count; i++) {
-            this.clouds.push({
-                x: Math.random() * this.canvas.width,
-                y: Math.random() * (GAME_CONFIG.clouds.maxY - GAME_CONFIG.clouds.minY) + GAME_CONFIG.clouds.minY,
-                width: Math.random() * (GAME_CONFIG.clouds.maxWidth - GAME_CONFIG.clouds.minWidth) + GAME_CONFIG.clouds.minWidth,
-                height: Math.random() * (GAME_CONFIG.clouds.maxHeight - GAME_CONFIG.clouds.minHeight) + GAME_CONFIG.clouds.minHeight,
-                speed: Math.random() * (GAME_CONFIG.clouds.maxSpeed - GAME_CONFIG.clouds.minSpeed) + GAME_CONFIG.clouds.minSpeed
-            });
+
+    toggleLanguageSelector() {
+        const selector = document.getElementById('language-selector-game');
+        selector?.classList.toggle('hidden');
+    }
+
+    async initializeTranslations() {
+        // Wait for Firebase service to be available
+        await this.waitForFirebase();
+        
+        try {
+            const translationsData = await window.firebaseService.getTranslations();
+            this.translations = translationsData;
+            
+            // Initialize current language
+            this.currentLanguage = localStorage.getItem('game-language') || 
+                                  this.detectBrowserLanguage() || 'it';
+            
+            // Update UI with translations
+            this.updateUITranslations();
+            this.updateLanguageDisplay();
+            this.setupLanguageSelector();
+            
+        } catch (error) {
+            console.warn('🦕 [GAME] Could not load translations, using fallback');
+            this.translations = this.getFallbackTranslations();
+            this.currentLanguage = 'it';
         }
     }
-    
-    initControls() {
-        // Keyboard controls
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') {
-                e.preventDefault();
-                this.handleJump();
+
+    async waitForFirebase() {
+        let attempts = 0;
+        const maxAttempts = 50;
+        
+        while (!window.firebaseService && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
+        
+        if (!window.firebaseService) {
+            console.warn('Firebase service not available, using fallback translations');
+            return;
+        }
+        
+        attempts = 0;
+        while (!window.firebaseService.isInitialized && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
+    }
+
+    detectBrowserLanguage() {
+        const browserLang = navigator.language.split('-')[0];
+        const supportedLanguages = ['it', 'en', 'fr', 'de', 'es', 'pt', 'ru', 'zh', 'ja', 'ar'];
+        return supportedLanguages.includes(browserLang) ? browserLang : 'it';
+    }
+
+    getFallbackTranslations() {
+        return {
+            it: {
+                game_title: "Gioco del Dinosauro",
+                game_subtitle: "Divertiti mentre aspetti il tuo ordine!",
+                instructions_title: "Come Giocare",
+                instruction_1: "Tocca lo schermo per saltare (o premi SPAZIO su desktop)",
+                instruction_2: "Evita tavoli, pizze e mestoli per continuare a correre",
+                instruction_3: "Più a lungo resisti, più alto sarà il tuo punteggio",
+                instruction_4: "Tocca per ricominciare dopo il game over",
+                score_label: "Punteggio",
+                high_score_label: "Record",
+                speed_label: "Velocità",
+                game_controls_text: "Tocca lo schermo per iniziare o saltare",
+                back_to_menu_text: "Torna al Menu",
+                game_over_title: "Game Over!",
+                new_record_title: "Nuovo Record!",
+                final_score_text: "Punteggio finale:",
+                restart_text: "Gioca Ancora",
+                leaderboard_text: "Classifica",
+                leaderboard_title: "🏆 Classifica",
+                leaderboard_main_title: "🏆 Classifica Migliori Punteggi",
+                no_scores_text: "Nessun punteggio salvato. Gioca per essere il primo!",
+                save_score_label: "Inserisci il tuo nome per la classifica:",
+                use_suggestion: "Usa questo",
+                player_name_placeholder: "Il tuo nome o lascia vuoto per nome casuale",
+                save_score: "Salva Punteggio",
+                skip_save: "Salta",
+                play_again: "Gioca Ancora",
+                orientation_title: "Ruota il dispositivo",
+                orientation_message: "Per una migliore esperienza di gioco, ruota il tuo dispositivo in orizzontale",
+                orientation_note: "Il gioco è ottimizzato per la modalità landscape",
+                continue_portrait_text: "Continua in verticale"
+            },
+            en: {
+                game_title: "Dinosaur Game",
+                game_subtitle: "Have fun while waiting for your order!",
+                instructions_title: "How to Play",
+                instruction_1: "Tap the screen to jump (or press SPACE on desktop)",
+                instruction_2: "Avoid tables, pizzas and ladles to keep running",
+                instruction_3: "The longer you survive, the higher your score",
+                instruction_4: "Tap to restart after game over",
+                score_label: "Score",
+                high_score_label: "High Score",
+                speed_label: "Speed",
+                game_controls_text: "Tap the screen to start or jump",
+                back_to_menu_text: "Back to Menu",
+                game_over_title: "Game Over!",
+                new_record_title: "New Record!",
+                final_score_text: "Final score:",
+                restart_text: "Play Again",
+                leaderboard_text: "Leaderboard",
+                leaderboard_title: "🏆 Leaderboard",
+                leaderboard_main_title: "🏆 Top Scores Leaderboard",
+                no_scores_text: "No scores saved. Play to be the first!",
+                save_score_label: "Enter your name for the leaderboard:",
+                use_suggestion: "Use this",
+                player_name_placeholder: "Your name or leave empty for random name",
+                save_score: "Save Score",
+                skip_save: "Skip",
+                play_again: "Play Again",
+                orientation_title: "Rotate Device",
+                orientation_message: "For a better gaming experience, rotate your device to landscape",
+                orientation_note: "The game is optimized for landscape mode",
+                continue_portrait_text: "Continue in Portrait"
+            }
+        };
+    }
+
+    updateUITranslations() {
+        const t = this.translations[this.currentLanguage] || this.translations.it || {};
+        
+        // Update all translatable elements
+        const elements = {
+            'game-title': t.game_title,
+            'game-subtitle': t.game_subtitle,
+            'instructions-title': t.instructions_title,
+            'instruction-1': t.instruction_1,
+            'instruction-2': t.instruction_2,
+            'instruction-3': t.instruction_3,
+            'instruction-4': t.instruction_4,
+            'score-label': t.score_label,
+            'high-score-label': t.high_score_label,
+            'speed-label': t.speed_label,
+            'game-controls-text': t.game_controls_text,
+            'back-to-menu-text': t.back_to_menu_text,
+            'restart-text': t.restart_text,
+            'leaderboard-text': t.leaderboard_text,
+            'leaderboard-title': t.leaderboard_title,
+            'leaderboard-main-title': t.leaderboard_main_title,
+            'no-scores-text': t.no_scores_text,
+            'save-score-label': t.save_score_label,
+            'orientation-title': t.orientation_title,
+            'orientation-message': t.orientation_message,
+            'orientation-note': t.orientation_note,
+            'continue-portrait-text': t.continue_portrait_text
+        };
+
+        Object.entries(elements).forEach(([id, text]) => {
+            const element = document.getElementById(id);
+            if (element && text) {
+                element.textContent = text;
             }
         });
         
-        // Touch controls
+        // Update elements with data-translation attribute
+        document.querySelectorAll('[data-translation]').forEach(element => {
+            const key = element.dataset.translation;
+            if (t[key]) {
+                element.textContent = t[key];
+            }
+        });
+        
+        // Update placeholders
+        document.querySelectorAll('[data-placeholder]').forEach(element => {
+            const key = element.dataset.placeholder;
+            if (t[key]) {
+                element.placeholder = t[key];
+            }
+        });
+    }
+
+    updateLanguageDisplay() {
+        const flags = {
+            'it': '🇮🇹', 'en': '🇬🇧', 'fr': '🇫🇷', 'de': '🇩🇪',
+            'es': '🇪🇸', 'pt': '🇵🇹', 'ru': '🇷🇺', 'zh': '🇨🇳',
+            'ja': '🇯🇵', 'ar': '🇸🇦'
+        };
+        
+        const currentLangElement = document.getElementById('current-language-game');
+        if (currentLangElement) {
+            currentLangElement.textContent = flags[this.currentLanguage] || '🇮🇹';
+        }
+        
+        // Update HTML lang attribute
+        document.documentElement.lang = this.currentLanguage;
+        
+        // Update RTL for Arabic
+        if (this.currentLanguage === 'ar') {
+            document.body.dir = 'rtl';
+        } else {
+            document.body.dir = 'ltr';
+        }
+    }
+
+    setupLanguageSelector() {
+        const languageGrid = document.getElementById('language-grid-game');
+        if (!languageGrid) return;
+        
+        const availableLanguages = this.translations._languages ? 
+            Object.keys(this.translations._languages).filter(lang => {
+                const langData = this.translations._languages[lang];
+                return langData && langData.active !== false;
+            }) : ['it', 'en'];
+        
+        const languageNames = {
+            'it': 'Italiano', 'en': 'English', 'fr': 'Français', 'de': 'Deutsch',
+            'es': 'Español', 'pt': 'Português', 'ru': 'Русский', 'zh': '中文',
+            'ja': '日本語', 'ar': 'العربية'
+        };
+        
+        const flags = {
+            'it': '🇮🇹', 'en': '🇬🇧', 'fr': '🇫🇷', 'de': '🇩🇪',
+            'es': '🇪🇸', 'pt': '🇵🇹', 'ru': '🇷🇺', 'zh': '🇨🇳',
+            'ja': '🇯🇵', 'ar': '🇸🇦'
+        };
+        
+        languageGrid.innerHTML = availableLanguages
+            .filter(code => languageNames[code])
+            .map(code => {
+                const langData = this.translations._languages?.[code] || {};
+                const name = langData.name || languageNames[code];
+                const flag = langData.flag || flags[code];
+                
+                return `
+                <button class="lang-btn" data-lang="${code}">
+                    ${flag} ${name}
+                </button>
+                `;
+            }).join('');
+        
+        // Re-attach event listeners
+        languageGrid.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const lang = e.target.dataset.lang;
+                this.changeLanguage(lang);
+            });
+        });
+    }
+
+    changeLanguage(lang) {
+        this.currentLanguage = lang;
+        localStorage.setItem('game-language', lang);
+        
+        this.updateLanguageDisplay();
+        this.updateUITranslations();
+        this.hideLanguageSelector();
+    }
+
+    hideLanguageSelector() {
+        document.getElementById('language-selector-game')?.classList.add('hidden');
+    }
+
+    setupOrientationHandling() {
+        if (!this.isMobile || !GAME_CONFIG.mobile.forceOrientation) return;
+        
+        this.orientationNotice = document.getElementById('orientation-notice');
+        const continuePortraitBtn = document.getElementById('continue-portrait');
+        
+        // Allow continuing in portrait mode
+        if (continuePortraitBtn) {
+            continuePortraitBtn.addEventListener('click', () => {
+                this.allowPortraitMode();
+            });
+        }
+        
+        // Check orientation on load and resize
+        this.checkOrientation();
+        
+        // Listen for orientation changes
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => this.checkOrientation(), 100);
+        });
+        
+        window.addEventListener('resize', () => {
+            this.checkOrientation();
+        });
+    }
+    
+    allowPortraitMode() {
+        const gameContainer = document.querySelector('.game-container');
+        if (gameContainer) {
+            gameContainer.classList.add('portrait-allowed');
+        }
+        
+        if (this.orientationNotice) {
+            this.orientationNotice.classList.add('hidden');
+        }
+        
+        // Resume game if it was paused
+        if (this.paused && !this.crashed) {
+            setTimeout(() => this.resume(), 500);
+        }
+    }
+    
+    checkOrientation() {
+        if (!this.isMobile || !this.orientationNotice) return;
+        
+        const isPortrait = GameUtils.isPortrait();
+        const gameContainer = document.querySelector('.game-container');
+        const isPortraitAllowed = gameContainer?.classList.contains('portrait-allowed');
+        
+        if (isPortrait && GAME_CONFIG.mobile.showOrientationNotice && !isPortraitAllowed) {
+            this.orientationNotice.classList.remove('hidden');
+            // Pause game if running
+            if (this.isRunning()) {
+                this.pause();
+            }
+        } else {
+            this.orientationNotice.classList.add('hidden');
+            // Resume game if it was paused due to orientation
+            if (this.paused && !this.crashed) {
+                setTimeout(() => this.resume(), 500);
+            }
+        }
+    }
+
+    initializeGameObjects() {
+        // Initialize Player (Mario)
+        this.player = new Player(this.canvas, spriteLoader);
+        
+        // Initialize horizon (ground and clouds)
+        this.horizon = new Horizon(this.canvas, spriteLoader);
+        
+        // Initialize distance meter
+        this.distanceMeter = new DistanceMeter(this.canvas);
+        
+        // Initialize game over panel
+        this.gameOverPanel = new GameOverPanel(this.canvas);
+    }
+
+    setupEventListeners() {
+        // Keyboard events
+        document.addEventListener('keydown', (e) => {
+            this.onKeyDown(e);
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            this.onKeyUp(e);
+        });
+        
+        // Touch/click events for mobile
         this.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            this.handleJump();
-        });
+            this.handleTouch(e);
+        }, { passive: false });
         
-        // Mouse controls
+        this.canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+        
         this.canvas.addEventListener('click', (e) => {
             e.preventDefault();
-            this.handleJump();
+            this.handleClick(e);
         });
         
-        // Prevent context menu on long press
+        // Prevent context menu and scrolling
         this.canvas.addEventListener('contextmenu', (e) => {
             e.preventDefault();
         });
         
-        console.log('🎮 [GAME] Controls initialized');
+        if (GAME_CONFIG.mobile.preventScroll) {
+            document.addEventListener('touchmove', (e) => {
+                if (e.target === this.canvas) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
+        
+        // Visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.pause();
+            } else if (!this.crashed) {
+                this.resume();
+            }
+        });
     }
-    
-    handleOrientation() {
-        if (!this.isMobile) return;
-        
-        const orientationNotice = document.getElementById('orientation-notice');
-        const gameContainer = document.querySelector('.game-container');
-        const continuePortraitBtn = document.getElementById('continue-portrait');
-        
-        const checkOrientation = () => {
-            const isPortrait = GameUtils.isPortrait();
-            
-            if (isPortrait && !this.isPortraitAllowed) {
-                if (orientationNotice) {
-                    orientationNotice.classList.remove('hidden');
-                    orientationNotice.style.display = 'flex';
-                }
-                if (gameContainer) {
-                    gameContainer.classList.remove('portrait-allowed');
-                }
-            } else {
-                if (orientationNotice) {
-                    orientationNotice.classList.add('hidden');
-                    orientationNotice.style.display = 'none';
-                }
-                if (gameContainer) {
-                    if (this.isPortraitAllowed || !isPortrait) {
-                        gameContainer.classList.add('portrait-allowed');
-                    }
+
+    handleTouch(e) {
+        if (!this.activated) {
+            this.startGame();
+        } else if (!this.crashed && !this.paused) {
+            this.player.jump();
+        } else if (this.crashed) {
+            this.restart();
+        }
+    }
+
+    handleClick(e) {
+        this.handleTouch(e);
+    }
+
+    onKeyDown(e) {
+        if (!this.crashed && !this.paused) {
+            if (e.keyCode === 32 || e.keyCode === 38) { // Space or Up arrow
+                e.preventDefault();
+                
+                if (!this.activated) {
+                    this.startGame();
+                } else {
+                    this.player.jump();
                 }
             }
-        };
+        } else if (this.crashed && (e.keyCode === 32 || e.keyCode === 82)) { // Space or R
+            e.preventDefault();
+            this.restart();
+        }
+    }
+
+    onKeyUp(e) {
+        // Handle key up events if needed
+    }
+
+    startGame() {
+        if (!this.activated) {
+            this.activated = true;
+            this.crashed = false;
+            this.paused = false;
+            this.currentState = GAME_CONFIG.states.RUNNING;
+            this.runningTime = 0;
+            this.time = performance.now();
+            this.play();
+        }
+    }
+
+    play() {
+        this.update();
+    }
+
+    pause() {
+        this.paused = true;
+        if (this.raqId) {
+            cancelAnimationFrame(this.raqId);
+            this.raqId = 0;
+        }
+    }
+
+    resume() {
+        if (this.paused && !this.crashed) {
+            this.paused = false;
+            this.time = performance.now();
+            this.update();
+        }
+    }
+
+    update() {
+        if (this.paused || this.crashed) {
+            return;
+        }
+
+        const now = performance.now();
+        const deltaTime = now - this.time;
+        this.time = now;
         
-        // Continue in portrait button
-        continuePortraitBtn?.addEventListener('click', () => {
-            this.isPortraitAllowed = true;
-            localStorage.setItem('game-portrait-allowed', 'true');
-            checkOrientation();
-        });
+        if (this.activated) {
+            this.runningTime += deltaTime;
+            
+            // Clear canvas
+            this.clearCanvas();
+            
+            // Update game speed
+            this.updateSpeed();
+            
+            // Update game objects
+            this.updateGameObjects(deltaTime);
+            
+            // Check collisions
+            this.checkCollisions();
+            
+            // Draw everything
+            this.draw();
+            
+            // Update UI
+            this.updateUI();
+        }
         
-        // Load portrait preference
-        this.isPortraitAllowed = localStorage.getItem('game-portrait-allowed') === 'true';
+        if (this.activated && !this.crashed && !this.paused) {
+            this.raqId = requestAnimationFrame(() => this.update());
+        }
+    }
+
+    updateSpeed() {
+        const timeSeconds = this.runningTime / 1000;
+        this.currentSpeed = Math.min(
+            GAME_CONFIG.physics.initialSpeed + timeSeconds * GAME_CONFIG.physics.acceleration,
+            GAME_CONFIG.physics.maxSpeed
+        );
         
-        // Check orientation on load and resize
-        checkOrientation();
-        window.addEventListener('orientationchange', () => {
-            setTimeout(checkOrientation, 100);
-        });
-        window.addEventListener('resize', checkOrientation);
+        // Increase speed every 100 points
+        const speedBoost = Math.floor(this.getScore() / 100) * 0.5;
+        this.currentSpeed = Math.min(this.currentSpeed + speedBoost, GAME_CONFIG.physics.maxSpeed);
+    }
+
+    updateGameObjects(deltaTime) {
+        // Update player
+        this.player.update(deltaTime, this.currentSpeed);
+        
+        // Update horizon (ground and clouds)
+        this.horizon.update(deltaTime, this.currentSpeed);
+        
+        // Update obstacles
+        this.updateObstacles(deltaTime);
+        
+        // Update power-ups
+        this.updatePowerUps(deltaTime);
+        
+        // Update distance
+        this.distanceRan += this.currentSpeed * (deltaTime / this.msPerFrame);
+        
+        // Update score based on distance
+        this.score = Math.floor(this.distanceRan * GAME_CONFIG.scoring.pointsPerFrame);
+    }
+
+    updateObstacles(deltaTime) {
+        // Spawn new obstacles
+        const spawnDelay = GameUtils.getSpawnDelay(this.currentSpeed);
+        if (this.runningTime - this.lastObstacleTime > spawnDelay) {
+            this.spawnObstacle();
+            this.lastObstacleTime = this.runningTime;
+        }
+        
+        // Update existing obstacles
+        for (let i = this.obstacles.length - 1; i >= 0; i--) {
+            const obstacle = this.obstacles[i];
+            obstacle.update(deltaTime, this.currentSpeed);
+            
+            // Remove obstacles that are off screen
+            if (obstacle.x + obstacle.width < 0) {
+                this.obstacles.splice(i, 1);
+            }
+        }
+    }
+
+    updatePowerUps(deltaTime) {
+        // Spawn new power-ups
+        const powerUpDelay = GameUtils.getPowerUpSpawnDelay(this.currentSpeed);
+        if (this.runningTime - this.lastPowerUpTime > powerUpDelay) {
+            if (Math.random() < GAME_CONFIG.obstacles.powerUpChance) {
+                this.spawnPowerUp();
+            }
+            this.lastPowerUpTime = this.runningTime;
+        }
+        
+        // Update existing power-ups
+        for (let i = this.powerUps.length - 1; i >= 0; i--) {
+            const powerUp = this.powerUps[i];
+            powerUp.update(deltaTime, this.currentSpeed);
+            
+            // Check collision with player
+            if (this.player.collidesWith(powerUp)) {
+                // Add points
+                this.score += powerUp.points;
+                // Remove power-up
+                this.powerUps.splice(i, 1);
+                continue;
+            }
+            
+            // Remove power-ups that are off screen
+            if (powerUp.x + powerUp.width < 0) {
+                this.powerUps.splice(i, 1);
+            }
+        }
+    }
+
+    spawnObstacle() {
+        const obstacleType = GameUtils.getRandomObstacleType();
+        const obstacle = new Obstacle(obstacleType, this.canvas.width, spriteLoader);
+        this.obstacles.push(obstacle);
+    }
+
+    spawnPowerUp() {
+        const powerUpType = GameUtils.getRandomPowerUpType();
+        const powerUp = new PowerUp(powerUpType, this.canvas.width, spriteLoader);
+        this.powerUps.push(powerUp);
+    }
+    checkCollisions() {
+        for (const obstacle of this.obstacles) {
+            if (this.player.collidesWith(obstacle)) {
+                this.gameOver();
+                break;
+            }
+        }
+    }
+
+    draw() {
+        // Draw horizon (ground and clouds)
+        this.horizon.draw();
+        
+        // Draw obstacles
+        this.obstacles.forEach(obstacle => obstacle.draw(this.ctx));
+        
+        // Draw power-ups
+        this.powerUps.forEach(powerUp => powerUp.draw(this.ctx));
+        
+        // Draw player
+        this.player.draw(this.ctx);
+        
+        // Draw debug info if needed (only in development)
+        // Debug info removed as requested
     }
     
-    handleJump() {
-        const now = Date.now();
+    clearCanvas() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        if (this.gameState === GAME_CONFIG.states.WAITING) {
-            this.startGame();
-            return;
+        // Background
+        this.ctx.fillStyle = GAME_CONFIG.colors.background;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    updateUI() {
+        // Update score display
+        const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('highScore');
+        const speedElement = document.getElementById('speed');
+        
+        if (scoreElement) {
+            scoreElement.textContent = this.getScore();
         }
         
-        if (this.gameState === GAME_CONFIG.states.GAME_OVER) {
-            this.restartGame();
-            return;
+        if (highScoreElement) {
+            highScoreElement.textContent = this.highScore;
         }
         
-        if (this.gameState === GAME_CONFIG.states.RUNNING && 
-            this.player.isOnGround && 
-            now - this.lastJumpTime > GAME_CONFIG.physics.jumpCooldown) {
+        if (speedElement) {
+            const speedMultiplier = (this.currentSpeed / GAME_CONFIG.physics.initialSpeed).toFixed(1);
+            speedElement.textContent = speedMultiplier + 'x';
+        }
+    }
+
+    gameOver() {
+        this.crashed = true;
+        this.currentState = GAME_CONFIG.states.GAME_OVER;
+        
+        // Update high score
+        const finalScore = this.getScore();
+        if (finalScore > this.highScore) {
+            this.highScore = finalScore;
+            this.saveHighScore(this.highScore);
+        }
+        
+        // Show game over
+        this.showGameOverModal(finalScore);
+        
+        // Stop animation
+        if (this.raqId) {
+            cancelAnimationFrame(this.raqId);
+            this.raqId = 0;
+        }
+    }
+
+    showGameOverModal(finalScore) {
+        const gameOverElement = document.getElementById('gameOver');
+        const finalScoreElement = document.getElementById('finalScore');
+        const gameOverTitle = document.getElementById('game-over-title');
+        const t = this.translations[this.currentLanguage] || this.translations.it || {};
+        
+        if (gameOverElement) {
+            gameOverElement.classList.add('show');
+        }
+        
+        if (finalScoreElement) {
+            finalScoreElement.textContent = finalScore;
+        }
+        
+        // Check if it's a new high score
+        if (finalScore > 0 && finalScore >= this.highScore) {
+            if (gameOverTitle) {
+                gameOverTitle.textContent = t.new_record_title || 'Nuovo Record!';
+            }
+            this.showSaveScoreForm(finalScore);
+        } else {
+            if (gameOverTitle) {
+                gameOverTitle.textContent = t.game_over_title || 'Game Over!';
+            }
+            // Always show save score form for any score > 0
+            if (finalScore > 0) {
+                this.showSaveScoreForm(finalScore);
+            }
+        }
+    }
+
+    hideGameOver() {
+        const gameOverElement = document.getElementById('gameOver');
+        if (gameOverElement) {
+            gameOverElement.classList.remove('show');
+        }
+    }
+
+    restart() {
+        // Reset game state
+        this.crashed = false;
+        this.activated = false;
+        this.paused = false;
+        this.distanceRan = 0;
+        this.score = 0;
+        this.currentSpeed = GAME_CONFIG.physics.initialSpeed;
+        this.runningTime = 0;
+        this.lastObstacleTime = 0;
+        this.currentState = GAME_CONFIG.states.WAITING;
+        
+        // Reset game objects
+        this.player.reset();
+        this.horizon.reset();
+        this.obstacles = [];
+        this.powerUps = [];
+        
+        // Hide game over
+        this.hideGameOver();
+        
+        // Clear canvas
+        this.clearCanvas();
+        this.draw();
+        
+        console.log('🦕 [GAME] Game restarted');
+    }
+
+    showSaveScoreForm(score) {
+        const saveScoreDiv = document.getElementById('save-score-section');
+        const randomNameText = document.getElementById('random-name-text');
+        const playerNameInput = document.getElementById('player-name');
+        const t = this.translations[this.currentLanguage] || this.translations.it || {};
+        
+        if (saveScoreDiv) {
+            saveScoreDiv.style.display = 'block';
+        }
+        
+        // Generate and show random name suggestion
+        if (randomNameText) {
+            const randomName = getRandomPlayerName();
+            const suggestionText = t.random_name_suggestion || 'Suggerimento:';
+            randomNameText.textContent = `${suggestionText} ${randomName} `;
             
-            this.player.velocityY = -GAME_CONFIG.player.jumpPower;
-            this.player.isJumping = true;
-            this.player.isOnGround = false;
+            // Store the random name for use later
+            if (playerNameInput) {
+                playerNameInput.dataset.randomName = randomName;
+            }
+        }
+    }
+
+    saveScore(playerName, score) {
+        try {
+            let leaderboard = JSON.parse(localStorage.getItem('mario-barrino-leaderboard') || '[]');
+            
+            // Use random name if no name provided
+            let finalName = playerName?.trim();
+            if (!finalName) {
+                const playerNameInput = document.getElementById('player-name');
+                finalName = playerNameInput?.dataset.randomName || getRandomPlayerName();
+            }
+            
+            const newEntry = {
+                name: finalName,
+                score: score,
+                date: new Date().toLocaleDateString('it-IT'),
+                timestamp: Date.now()
+            };
+            
+            leaderboard.push(newEntry);
+            leaderboard.sort((a, b) => {
+                // Sort by score first, then by timestamp for ties
+                if (b.score !== a.score) {
+                    return b.score - a.score;
+                }
+                return a.timestamp - b.timestamp; // Earlier timestamp wins for same score
+            });
+            
+            localStorage.setItem('mario-barrino-leaderboard', JSON.stringify(leaderboard));
+            
+            // Hide save form and show leaderboard
+            const saveScoreDiv = document.getElementById('save-score-section');
+            if (saveScoreDiv) {
+                saveScoreDiv.style.display = 'none';
+            }
+            
+            // Update the always-visible leaderboard
+            this.updateGameLeaderboardDisplay();
+            
+            this.showLeaderboard();
+            
+            return true;
+        } catch (error) {
+            console.error('Error saving score:', error);
+            return false;
+        }
+    }
+
+    showLeaderboard() {
+        const leaderboardModal = document.getElementById('leaderboard-modal');
+        if (leaderboardModal) {
+            this.updateLeaderboardDisplay();
+            leaderboardModal.style.display = 'flex';
+        }
+    }
+
+    updateGameLeaderboardDisplay() {
+        try {
+            const leaderboard = JSON.parse(localStorage.getItem('mario-barrino-leaderboard') || '[]');
+            const gameLeaderboardList = document.getElementById('game-leaderboard-list');
+            const t = this.translations[this.currentLanguage] || this.translations.it || {};
+            
+            if (gameLeaderboardList) {
+                if (leaderboard.length === 0) {
+                    const noScoresText = t.no_scores_text || 'Nessun punteggio salvato. Gioca per essere il primo!';
+                    gameLeaderboardList.innerHTML = `<li class="no-scores-game">${noScoresText}</li>`;
+                } else {
+                    gameLeaderboardList.innerHTML = leaderboard.map((entry, index) => `
+                        <li class="game-leaderboard-entry ${index < 3 ? 'top-' + (index + 1) : ''}">
+                            <span class="rank">${index + 1}.</span>
+                            <span class="name">${entry.name}</span>
+                            <span class="score">${entry.score}</span>
+                            <span class="date">${entry.date}</span>
+                        </li>
+                    `).join('');
+                }
+            }
+        } catch (error) {
+            console.error('Error updating game leaderboard:', error);
+        }
+    }
+
+    updateLeaderboardDisplay() {
+        try {
+            const leaderboard = JSON.parse(localStorage.getItem('mario-barrino-leaderboard') || '[]');
+            const leaderboardList = document.getElementById('leaderboard-list');
+            const noScoresModal = document.getElementById('no-scores-modal');
+            const t = this.translations[this.currentLanguage] || this.translations.it || {};
+            
+            if (leaderboardList) {
+                if (leaderboard.length === 0) {
+                    leaderboardList.style.display = 'none';
+                    if (noScoresModal) {
+                        noScoresModal.style.display = 'block';
+                        const noScoresText = t.no_scores_modal_text || 'Nessun punteggio salvato';
+                        document.getElementById('no-scores-modal-text').textContent = noScoresText;
+                    }
+                } else {
+                    leaderboardList.style.display = 'block';
+                    if (noScoresModal) {
+                        noScoresModal.style.display = 'none';
+                    }
+                    leaderboardList.innerHTML = leaderboard.map((entry, index) => `
+                        <li class="leaderboard-entry ${index < 3 ? 'top-' + (index + 1) : ''}">
+                            <span class="rank">${index + 1}.</span>
+                            <span class="name">${entry.name}</span>
+                            <span class="score">${entry.score}</span>
+                            <span class="date">${entry.date}</span>
+                        </li>
+                    `).join('');
+                }
+            }
+        } catch (error) {
+            console.error('Error updating leaderboard:', error);
+        }
+    }
+
+    loadHighScore() {
+        try {
+            return parseInt(localStorage.getItem('mario-barrino-high-score') || '0');
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    saveHighScore(score) {
+        try {
+            localStorage.setItem('mario-barrino-high-score', score.toString());
+        } catch (e) {
+            console.warn('Could not save high score');
+        }
+    }
+
+    // Public API
+    getScore() {
+        return this.score;
+    }
+
+    getHighScore() {
+        return this.highScore;
+    }
+
+    isRunning() {
+        return this.activated && !this.crashed && !this.paused;
+    }
+
+    isGameOver() {
+        return this.crashed;
+    }
+
+    destroy() {
+        if (this.raqId) {
+            cancelAnimationFrame(this.raqId);
+        }
+        console.log('🦕 [GAME] Game destroyed');
+    }
+}
+
+// Player class (Mario)
+class Player {
+    constructor(canvas, spriteLoader) {
+        this.canvas = canvas;
+        this.spriteLoader = spriteLoader;
+        
+        // Position and dimensions
+        this.x = GAME_CONFIG.player.x;
+        this.y = GAME_CONFIG.player.y;
+        this.width = GAME_CONFIG.player.width;
+        this.height = GAME_CONFIG.player.height;
+        this.groundY = GAME_CONFIG.player.groundY;
+        
+        // Physics
+        this.velocityY = 0;
+        this.isJumping = false;
+        this.isOnGround = true;
+        this.lastJumpTime = 0;
+        this.jumpForce = GAME_CONFIG.player.jumpPower;
+        
+        // Animation
+        this.animationFrame = 0;
+        this.animationTimer = 0;
+        this.runningSprites = [
+            this.spriteLoader.getSprite('player_run1'),
+            this.spriteLoader.getSprite('player_run2')
+        ];
+        this.jumpingSprite = this.spriteLoader.getSprite('player_jump');
+        
+        this.reset();
+    }
+    
+    update(deltaTime, currentSpeed) {
+        // Update animation
+        this.updateAnimation(deltaTime);
+        
+        // Update physics
+        this.updatePhysics(deltaTime);
+    }
+    
+    updateAnimation(deltaTime) {
+        if (!this.isJumping) {
+            this.animationTimer += deltaTime;
+            if (this.animationTimer >= GAME_CONFIG.player.sprites.animationSpeed) {
+                this.animationFrame = (this.animationFrame + 1) % 2;
+                this.animationTimer = 0;
+            }
+        }
+    }
+    
+    updatePhysics(deltaTime) {
+        if (this.isJumping) {
+            // Apply gravity
+            this.velocityY += GAME_CONFIG.player.gravity;
+            this.y += this.velocityY;
+            
+            // Check if landed
+            if (this.y >= this.groundY) {
+                this.y = this.groundY;
+                this.velocityY = 0;
+                this.isJumping = false;
+                this.isOnGround = true;
+            }
+        }
+    }
+    
+    jump() {
+        const now = performance.now();
+        if (this.isOnGround && (now - this.lastJumpTime) > GAME_CONFIG.physics.jumpCooldown) {
+            this.isJumping = true;
+            this.isOnGround = false;
+            this.velocityY = -this.jumpForce;
             this.lastJumpTime = now;
         }
     }
     
-    startGame() {
-        this.gameState = GAME_CONFIG.states.RUNNING;
-        this.score = 0;
-        this.speed = GAME_CONFIG.physics.initialSpeed;
-        this.obstacles = [];
-        this.powerUps = [];
-        this.frameCount = 0;
-        this.lastObstacleSpawn = 0;
-        this.lastPowerUpSpawn = 0;
+    draw(ctx) {
+        let sprite = null;
         
-        // Reset player position
-        this.player.y = GAME_CONFIG.player.groundY;
-        this.player.velocityY = 0;
-        this.player.isJumping = false;
-        this.player.isOnGround = true;
+        if (this.isJumping) {
+            sprite = this.jumpingSprite;
+        } else {
+            sprite = this.runningSprites[this.animationFrame];
+        }
         
-        console.log('🎮 [GAME] Game started');
+        if (sprite && sprite.complete) {
+            ctx.drawImage(sprite, this.x, this.y, this.width, this.height);
+        } else {
+            // Fallback drawing
+            this.drawFallback(ctx);
+        }
     }
     
-    restartGame() {
-        // Hide game over screen
-        document.getElementById('gameOver')?.classList.remove('show');
-        document.getElementById('save-score-section').style.display = 'none';
-        document.getElementById('default-buttons').style.display = 'flex';
+    drawFallback(ctx) {
+        ctx.fillStyle = GAME_CONFIG.colors.player;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
         
-        this.startGame();
+        // Simple Mario-like character
+        ctx.fillStyle = '#FF0000'; // Red hat
+        ctx.fillRect(this.x + 5, this.y, this.width - 10, 8);
+        
+        ctx.fillStyle = '#FFDBAC'; // Skin color
+        ctx.fillRect(this.x + 8, this.y + 8, this.width - 16, 12);
+        
+        ctx.fillStyle = '#0000FF'; // Blue shirt
+        ctx.fillRect(this.x + 5, this.y + 20, this.width - 10, 15);
     }
     
-    gameLoop() {
-        this.update();
-        this.render();
-        
-        this.animationId = requestAnimationFrame(() => this.gameLoop());
+    collidesWith(obstacle) {
+        return GameUtils.checkCollision(
+            { x: this.x, y: this.y, width: this.width, height: this.height },
+            obstacle,
+            3 // tolerance
+        );
     }
     
-    update() {
-        if (this.gameState !== GAME_CONFIG.states.RUNNING) return;
+    reset() {
+        this.x = GAME_CONFIG.player.x;
+        this.y = GAME_CONFIG.player.groundY;
+        this.velocityY = 0;
+        this.isJumping = false;
+        this.isOnGround = true;
+        this.animationFrame = 0;
+        this.animationTimer = 0;
+    }
+}
+
+// Obstacle class
+class Obstacle {
+    constructor(type, canvasWidth, spriteLoader) {
+        this.type = type;
+        this.spriteLoader = spriteLoader;
+        this.sprite = spriteLoader.getSprite(`obstacle_${type.id}`);
         
-        this.frameCount++;
+        // Position and dimensions
+        this.x = canvasWidth;
+        // Gestione altezze multiple per ostacoli volanti
+        if (Array.isArray(type.y)) {
+            this.baseY = type.y[Math.floor(Math.random() * type.y.length)];
+        } else {
+            this.baseY = type.y;
+        }
+        this.y = this.baseY;
+        this.width = type.width;
+        this.height = type.height;
         
-        // Update player physics
-        this.updatePlayer();
+        // Animation per ostacoli volanti
+        this.animationFrame = 0;
+        this.animationTimer = 0;
+        this.flyOffset = 0;
+        this.flySpeed = type.flySpeed || 2;
+        this.flyAmplitude = type.flyAmplitude || 10;
+    }
+    
+    update(deltaTime, currentSpeed) {
+        // Move obstacle
+        this.x -= currentSpeed;
         
-        // Update game speed
-        this.updateSpeed();
+        // Animazione migliorata per ostacoli volanti
+        if (this.type.canFly) {
+            this.flyOffset += this.flySpeed * (deltaTime / 16.67); // Normalizzato a 60fps
+            this.y = this.baseY + Math.sin(this.flyOffset * 0.1) * this.flyAmplitude;
+        }
+    }
+    
+    draw(ctx) {
+        if (this.sprite && this.sprite.complete) {
+            ctx.drawImage(this.sprite, this.x, this.y, this.width, this.height);
+        } else {
+            // Fallback drawing
+            this.drawFallback(ctx);
+        }
+    }
+    
+    drawFallback(ctx) {
+        ctx.fillStyle = GAME_CONFIG.colors.obstacles;
         
-        // Spawn obstacles
-        this.spawnObstacles();
+        if (this.type.id === 'tavolo') {
+            // Table
+            ctx.fillRect(this.x, this.y + 20, this.width, 5); // Table top
+            ctx.fillRect(this.x + 5, this.y + 25, 5, 15); // Leg 1
+            ctx.fillRect(this.x + 20, this.y + 25, 5, 15); // Leg 2
+        } else if (this.type.id === 'pizza') {
+            // Pizza slice
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y + this.height);
+            ctx.lineTo(this.x + this.width/2, this.y);
+            ctx.lineTo(this.x + this.width, this.y + this.height);
+            ctx.closePath();
+            ctx.fill();
+        } else if (this.type.id === 'mestolo') {
+            // Ladle
+            ctx.fillRect(this.x, this.y + 10, this.width - 10, 5); // Handle
+            ctx.beginPath();
+            ctx.arc(this.x + this.width - 8, this.y + 12, 8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+// PowerUp class
+class PowerUp {
+    constructor(type, canvasWidth, spriteLoader) {
+        this.type = type;
+        this.spriteLoader = spriteLoader;
+        this.sprite = spriteLoader.getSprite(`obstacle_${type.id.replace('_powerup', '')}`);
         
-        // Spawn power-ups
-        this.spawnPowerUps();
+        // Position and dimensions
+        this.x = canvasWidth;
+        // Altezza casuale tra quelle disponibili
+        if (Array.isArray(type.y)) {
+            this.y = type.y[Math.floor(Math.random() * type.y.length)];
+        } else {
+            this.y = type.y;
+        }
+        this.width = type.width;
+        this.height = type.height;
+        this.points = type.points;
         
-        // Update obstacles
-        this.updateObstacles();
+        // Glow animation
+        this.glowTimer = 0;
+        this.glowIntensity = type.glowIntensity || 0.8;
+        this.glowColor = type.glowColor || '#FFD700';
+    }
+    
+    update(deltaTime, currentSpeed) {
+        // Move power-up
+        this.x -= currentSpeed;
         
-        // Update power-ups
-        this.updatePowerUps();
+        // Update glow animation
+        this.glowTimer += deltaTime * GAME_CONFIG.powerUps.glowAnimation.speed;
+        const minIntensity = GAME_CONFIG.powerUps.glowAnimation.minIntensity;
+        const maxIntensity = GAME_CONFIG.powerUps.glowAnimation.maxIntensity;
+        this.glowIntensity = minIntensity + (maxIntensity - minIntensity) * 
+                           (Math.sin(this.glowTimer) * 0.5 + 0.5);
+    }
+    
+    draw(ctx) {
+        // Draw glow effect
+        ctx.save();
+        ctx.shadowColor = this.glowColor;
+        ctx.shadowBlur = 15 * this.glowIntensity;
+        ctx.globalAlpha = this.glowIntensity;
+        
+        // Draw multiple glow layers for better effect
+        for (let i = 0; i < 3; i++) {
+            ctx.shadowBlur = (5 + i * 5) * this.glowIntensity;
+            
+            if (this.sprite && this.sprite.complete) {
+                ctx.drawImage(this.sprite, this.x, this.y, this.width, this.height);
+            } else {
+                // Fallback drawing with glow
+                ctx.fillStyle = this.glowColor;
+                ctx.beginPath();
+                ctx.arc(this.x + this.width/2, this.y + this.height/2, this.width/2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        ctx.restore();
+        
+        // Draw the actual power-up (without glow)
+        if (this.sprite && this.sprite.complete) {
+            ctx.drawImage(this.sprite, this.x, this.y, this.width, this.height);
+        } else {
+            // Fallback drawing
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(this.x + this.width/2, this.y + this.height/2, this.width/2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    collidesWith(player) {
+        return GameUtils.checkCollision(
+            { x: this.x, y: this.y, width: this.width, height: this.height },
+            { x: player.x, y: player.y, width: player.width, height: player.height },
+            2 // tolerance più piccola per power-up
+        );
+    }
+}
+// Horizon class (manages ground and clouds)
+class Horizon {
+    constructor(canvas, spriteLoader) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.spriteLoader = spriteLoader;
+        this.clouds = [];
+        this.groundOffset = 0;
+        
+        this.initClouds();
+    }
+    
+    initClouds() {
+        for (let i = 0; i < GAME_CONFIG.clouds.count; i++) {
+            this.addCloud();
+        }
+    }
+    
+    addCloud() {
+        const cloud = {
+            x: this.canvas.width + Math.random() * 200,
+            y: GAME_CONFIG.clouds.minY + Math.random() * (GAME_CONFIG.clouds.maxY - GAME_CONFIG.clouds.minY),
+            width: GAME_CONFIG.clouds.minWidth + Math.random() * (GAME_CONFIG.clouds.maxWidth - GAME_CONFIG.clouds.minWidth),
+            height: GAME_CONFIG.clouds.minHeight + Math.random() * (GAME_CONFIG.clouds.maxHeight - GAME_CONFIG.clouds.minHeight),
+            speed: GAME_CONFIG.clouds.minSpeed + Math.random() * (GAME_CONFIG.clouds.maxSpeed - GAME_CONFIG.clouds.minSpeed),
+            sprite: this.spriteLoader.getSprite('cloud')
+        };
+        this.clouds.push(cloud);
+    }
+    
+    update(deltaTime, currentSpeed) {
+        // Update ground
+        this.groundOffset += currentSpeed;
+        if (this.groundOffset >= GAME_CONFIG.ground.patternSize) {
+            this.groundOffset = 0;
+        }
         
         // Update clouds
-        this.updateClouds();
-        
-        // Check collisions
-        this.checkCollisions();
-        
-        // Update score
-        this.updateScore();
-        
-        // Update UI
-        this.updateGameUI();
-    }
-    
-    updatePlayer() {
-        // Apply gravity
-        if (!this.player.isOnGround) {
-            this.player.velocityY += GAME_CONFIG.physics.gravity;
-        }
-        
-        // Update position
-        this.player.y += this.player.velocityY;
-        
-        // Ground collision
-        if (this.player.y >= GAME_CONFIG.player.groundY) {
-            this.player.y = GAME_CONFIG.player.groundY;
-            this.player.velocityY = 0;
-            this.player.isJumping = false;
-            this.player.isOnGround = true;
-        }
-        
-        // Update animation
-        this.updatePlayerAnimation();
-    }
-    
-    updatePlayerAnimation() {
-        const now = Date.now();
-        if (now - this.lastPlayerAnimationTime > GAME_CONFIG.player.sprites.animationSpeed) {
-            this.playerAnimationFrame = (this.playerAnimationFrame + 1) % 2;
-            this.lastPlayerAnimationTime = now;
-        }
-    }
-    
-    updateSpeed() {
-        if (this.speed < GAME_CONFIG.physics.maxSpeed) {
-            this.speed += GAME_CONFIG.physics.acceleration;
-        }
-    }
-    
-    spawnObstacles() {
-        const now = Date.now();
-        const spawnDelay = GameUtils.getSpawnDelay(this.speed);
-        
-        if (now - this.lastObstacleSpawn > spawnDelay) {
-            const obstacleType = GameUtils.getRandomObstacleType();
-            
-            let y = obstacleType.y;
-            if (Array.isArray(y)) {
-                y = y[Math.floor(Math.random() * y.length)];
-            }
-            
-            const obstacle = {
-                x: this.canvas.width,
-                y: y,
-                width: obstacleType.width,
-                height: obstacleType.height,
-                type: obstacleType.id,
-                canFly: obstacleType.canFly || false,
-                flyOffset: 0,
-                flySpeed: obstacleType.flySpeed || 0,
-                flyAmplitude: obstacleType.flyAmplitude || 0,
-                originalY: y
-            };
-            
-            this.obstacles.push(obstacle);
-            this.lastObstacleSpawn = now;
-        }
-    }
-    
-    spawnPowerUps() {
-        const now = Date.now();
-        const spawnDelay = GameUtils.getPowerUpSpawnDelay(this.speed);
-        
-        if (now - this.lastPowerUpSpawn > spawnDelay && Math.random() < GAME_CONFIG.powerUps.powerUpChance) {
-            const powerUpType = GameUtils.getRandomPowerUpType();
-            
-            let y = powerUpType.y;
-            if (Array.isArray(y)) {
-                y = y[Math.floor(Math.random() * y.length)];
-            }
-            
-            const powerUp = {
-                x: this.canvas.width,
-                y: y,
-                width: powerUpType.width,
-                height: powerUpType.height,
-                type: powerUpType.id,
-                points: powerUpType.points,
-                glowIntensity: 0.5,
-                glowDirection: 1
-            };
-            
-            this.powerUps.push(powerUp);
-            this.lastPowerUpSpawn = now;
-        }
-    }
-    
-    updateObstacles() {
-        this.obstacles = this.obstacles.filter(obstacle => {
-            obstacle.x -= this.speed;
-            
-            // Flying obstacle movement
-            if (obstacle.canFly) {
-                obstacle.flyOffset += obstacle.flySpeed;
-                obstacle.y = obstacle.originalY + Math.sin(obstacle.flyOffset) * obstacle.flyAmplitude;
-            }
-            
-            return obstacle.x + obstacle.width > 0;
-        });
-    }
-    
-    updatePowerUps() {
-        this.powerUps = this.powerUps.filter(powerUp => {
-            powerUp.x -= this.speed;
-            
-            // Update glow animation
-            powerUp.glowIntensity += powerUp.glowDirection * GAME_CONFIG.powerUps.glowAnimation.speed;
-            if (powerUp.glowIntensity >= GAME_CONFIG.powerUps.glowAnimation.maxIntensity) {
-                powerUp.glowDirection = -1;
-            } else if (powerUp.glowIntensity <= GAME_CONFIG.powerUps.glowAnimation.minIntensity) {
-                powerUp.glowDirection = 1;
-            }
-            
-            return powerUp.x + powerUp.width > 0;
-        });
-    }
-    
-    updateClouds() {
-        this.clouds.forEach(cloud => {
+        for (let i = this.clouds.length - 1; i >= 0; i--) {
+            const cloud = this.clouds[i];
             cloud.x -= cloud.speed;
+            
+            // Remove clouds that are off screen
             if (cloud.x + cloud.width < 0) {
-                cloud.x = this.canvas.width;
-                cloud.y = Math.random() * (GAME_CONFIG.clouds.maxY - GAME_CONFIG.clouds.minY) + GAME_CONFIG.clouds.minY;
-            }
-        });
-    }
-    
-    checkCollisions() {
-        // Check obstacle collisions
-        for (const obstacle of this.obstacles) {
-            if (GameUtils.checkCollision(this.player, obstacle, 5)) {
-                this.gameOver();
-                return;
+                this.clouds.splice(i, 1);
+                this.addCloud();
             }
         }
-        
-        // Check power-up collisions
-        this.powerUps = this.powerUps.filter(powerUp => {
-            if (GameUtils.checkCollision(this.player, powerUp, 2)) {
-                this.score += powerUp.points;
-                return false; // Remove power-up
-            }
-            return true;
-        });
     }
     
-    updateScore() {
-        this.score += GAME_CONFIG.scoring.pointsPerFrame;
-        this.score += this.speed * GAME_CONFIG.scoring.speedBonus;
+    draw() {
+        // Draw ground
+        this.drawGround();
+        
+        // Draw clouds
+        this.drawClouds();
     }
     
-    updateGameUI() {
-        document.getElementById('score').textContent = Math.floor(this.score);
-        document.getElementById('highScore').textContent = Math.floor(this.highScore);
-        document.getElementById('speed').textContent = (this.speed / GAME_CONFIG.physics.initialSpeed).toFixed(1) + 'x';
-    }
-    
-    gameOver() {
-        this.gameState = GAME_CONFIG.states.GAME_OVER;
+    drawGround() {
+        const ground = GAME_CONFIG.ground;
         
-        // Update high score
-        if (this.score > this.highScore) {
-            this.highScore = this.score;
-            this.saveHighScore();
-        }
-        
-        // Show game over screen
-        this.showGameOverScreen();
-        
-        console.log('🎮 [GAME] Game over. Score:', Math.floor(this.score));
-    }
-    
-    showGameOverScreen() {
-        const gameOverScreen = document.getElementById('gameOver');
-        const finalScoreElement = document.getElementById('finalScore');
-        const saveScoreSection = document.getElementById('save-score-section');
-        const defaultButtons = document.getElementById('default-buttons');
-        
-        if (finalScoreElement) {
-            finalScoreElement.textContent = Math.floor(this.score);
-        }
-        
-        // Check if it's a new high score
-        if (this.score >= this.highScore && this.score > 0) {
-            // Show save score section
-            if (saveScoreSection) {
-                saveScoreSection.style.display = 'block';
-            }
-            if (defaultButtons) {
-                defaultButtons.style.display = 'none';
-            }
-            
-            // Generate random name suggestion
-            const randomName = getRandomPlayerName();
-            const randomNameText = document.getElementById('random-name-text');
-            const useRandomNameBtn = document.getElementById('use-random-name');
-            const playerNameInput = document.getElementById('player-name');
-            
-            if (randomNameText) {
-                randomNameText.textContent = 'Suggerimento: ' + randomName;
-            }
-            
-            if (useRandomNameBtn) {
-                useRandomNameBtn.onclick = () => {
-                    if (playerNameInput) {
-                        playerNameInput.value = randomName;
-                    }
-                };
-            }
-            
-            // Setup save score button
-            const saveScoreBtn = document.getElementById('save-score-btn');
-            const skipSaveBtn = document.getElementById('skip-save-btn');
-            
-            if (saveScoreBtn) {
-                saveScoreBtn.onclick = () => this.savePlayerScore();
-            }
-            
-            if (skipSaveBtn) {
-                skipSaveBtn.onclick = () => this.skipSaveScore();
-            }
-        } else {
-            // Show default buttons
-            if (saveScoreSection) {
-                saveScoreSection.style.display = 'none';
-            }
-            if (defaultButtons) {
-                defaultButtons.style.display = 'flex';
-            }
-        }
-        
-        // Setup restart and leaderboard buttons
-        const restartBtn = document.getElementById('restartBtn');
-        const leaderboardBtn = document.getElementById('leaderboard-btn');
-        
-        if (restartBtn) {
-            restartBtn.onclick = () => this.restartGame();
-        }
-        
-        if (leaderboardBtn) {
-            leaderboardBtn.onclick = () => this.showLeaderboard();
-        }
-        
-        gameOverScreen?.classList.add('show');
-        
-        // Load and display leaderboard
-        this.loadLeaderboard();
-    }
-    
-    savePlayerScore() {
-        const playerNameInput = document.getElementById('player-name');
-        const playerName = playerNameInput?.value.trim() || 'Giocatore Anonimo';
-        
-        // Save score to localStorage
-        const scores = this.getStoredScores();
-        const newScore = {
-            name: playerName,
-            score: Math.floor(this.score),
-            date: new Date().toLocaleDateString('it-IT')
-        };
-        
-        scores.push(newScore);
-        scores.sort((a, b) => b.score - a.score);
-        scores.splice(10); // Keep only top 10
-        
-        localStorage.setItem('barrino-game-scores', JSON.stringify(scores));
-        
-        // Hide save section and show default buttons
-        document.getElementById('save-score-section').style.display = 'none';
-        document.getElementById('default-buttons').style.display = 'flex';
-        
-        // Update leaderboard display
-        this.loadLeaderboard();
-        
-        console.log('🎮 [GAME] Score saved:', newScore);
-    }
-    
-    skipSaveScore() {
-        // Hide save section and show default buttons
-        document.getElementById('save-score-section').style.display = 'none';
-        document.getElementById('default-buttons').style.display = 'flex';
-    }
-    
-    showLeaderboard() {
-        const leaderboardModal = document.getElementById('leaderboard-modal');
-        if (leaderboardModal) {
-            leaderboardModal.classList.remove('hidden');
-            leaderboardModal.style.display = 'flex';
-            this.loadLeaderboardModal();
-        }
-        
-        // Setup close button
-        const closeBtn = document.querySelector('.close-leaderboard');
-        if (closeBtn) {
-            closeBtn.onclick = () => this.hideLeaderboard();
-        }
-        
-        // Setup play again button
-        const playAgainBtn = document.getElementById('play-again-btn');
-        if (playAgainBtn) {
-            playAgainBtn.onclick = () => {
-                this.hideLeaderboard();
-                this.restartGame();
-            };
-        }
-    }
-    
-    hideLeaderboard() {
-        const leaderboardModal = document.getElementById('leaderboard-modal');
-        if (leaderboardModal) {
-            leaderboardModal.classList.add('hidden');
-            leaderboardModal.style.display = 'none';
-        }
-    }
-    
-    getStoredScores() {
-        try {
-            const stored = localStorage.getItem('barrino-game-scores');
-            return stored ? JSON.parse(stored) : [];
-        } catch (error) {
-            console.error('🎮 [GAME] Error loading scores:', error);
-            return [];
-        }
-    }
-    
-    loadLeaderboard() {
-        const leaderboardList = document.getElementById('game-leaderboard-list');
-        const noScoresElement = document.querySelector('.no-scores-game');
-        
-        if (!leaderboardList) return;
-        
-        const scores = this.getStoredScores();
-        
-        if (scores.length === 0) {
-            if (noScoresElement) {
-                noScoresElement.style.display = 'block';
-            }
-            leaderboardList.innerHTML = '<li class="no-scores-game">Nessun punteggio salvato</li>';
-            return;
-        }
-        
-        if (noScoresElement) {
-            noScoresElement.style.display = 'none';
-        }
-        
-        leaderboardList.innerHTML = scores.map((score, index) => {
-            const rank = index + 1;
-            let rankClass = '';
-            if (rank === 1) rankClass = 'top-1';
-            else if (rank === 2) rankClass = 'top-2';
-            else if (rank === 3) rankClass = 'top-3';
-            
-            return `
-                <li class="game-leaderboard-entry ${rankClass}">
-                    <span class="rank">${rank}</span>
-                    <span class="name">${score.name}</span>
-                    <span class="score">${score.score}</span>
-                    <span class="date">${score.date}</span>
-                </li>
-            `;
-        }).join('');
-    }
-    
-    loadLeaderboardModal() {
-        const leaderboardList = document.getElementById('leaderboard-list');
-        const noScoresModal = document.getElementById('no-scores-modal');
-        
-        if (!leaderboardList) return;
-        
-        const scores = this.getStoredScores();
-        
-        if (scores.length === 0) {
-            if (noScoresModal) {
-                noScoresModal.classList.remove('hidden');
-                noScoresModal.style.display = 'block';
-            }
-            leaderboardList.innerHTML = '';
-            return;
-        }
-        
-        if (noScoresModal) {
-            noScoresModal.classList.add('hidden');
-            noScoresModal.style.display = 'none';
-        }
-        
-        leaderboardList.innerHTML = scores.map((score, index) => {
-            const rank = index + 1;
-            let rankClass = '';
-            if (rank === 1) rankClass = 'top-1';
-            else if (rank === 2) rankClass = 'top-2';
-            else if (rank === 3) rankClass = 'top-3';
-            
-            return `
-                <li class="leaderboard-entry ${rankClass}">
-                    <span class="rank">${rank}</span>
-                    <span class="name">${score.name}</span>
-                    <span class="score">${score.score}</span>
-                    <span class="date">${score.date}</span>
-                </li>
-            `;
-        }).join('');
-    }
-    
-    loadHighScore() {
-        const saved = localStorage.getItem('barrino-game-highscore');
-        this.highScore = saved ? parseFloat(saved) : 0;
-    }
-    
-    saveHighScore() {
-        localStorage.setItem('barrino-game-highscore', this.highScore.toString());
-    }
-    
-    render() {
-        // Clear canvas
-        this.ctx.fillStyle = GAME_CONFIG.colors.background;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Render clouds
-        this.renderClouds();
-        
-        // Render ground
-        this.renderGround();
-        
-        // Render player
-        this.renderPlayer();
-        
-        // Render obstacles
-        this.renderObstacles();
-        
-        // Render power-ups
-        this.renderPowerUps();
-    }
-    
-    renderClouds() {
-        this.clouds.forEach(cloud => {
-            const cloudSprite = spriteLoader.getSprite('cloud');
-            if (cloudSprite) {
-                this.ctx.drawImage(cloudSprite, cloud.x, cloud.y, cloud.width, cloud.height);
-            } else {
-                // Fallback cloud rendering
-                this.ctx.fillStyle = GAME_CONFIG.colors.clouds;
-                this.ctx.beginPath();
-                this.ctx.arc(cloud.x + cloud.width * 0.2, cloud.y + cloud.height * 0.5, cloud.height * 0.3, 0, Math.PI * 2);
-                this.ctx.arc(cloud.x + cloud.width * 0.5, cloud.y + cloud.height * 0.3, cloud.height * 0.4, 0, Math.PI * 2);
-                this.ctx.arc(cloud.x + cloud.width * 0.8, cloud.y + cloud.height * 0.5, cloud.height * 0.3, 0, Math.PI * 2);
-                this.ctx.fill();
-            }
-        });
-    }
-    
-    renderGround() {
-        // Ground base
-        this.ctx.fillStyle = GAME_CONFIG.colors.ground;
-        this.ctx.fillRect(this.ground.x, this.ground.y, this.ground.width, this.ground.height);
+        // Main ground
+        this.ctx.fillStyle = ground.color;
+        this.ctx.fillRect(0, ground.y, this.canvas.width, ground.height);
         
         // Ground pattern
-        this.ctx.fillStyle = GAME_CONFIG.colors.groundPattern;
-        for (let x = 0; x < this.ground.width; x += GAME_CONFIG.ground.patternSize) {
-            this.ctx.fillRect(x, this.ground.y, 2, this.ground.height);
+        this.ctx.fillStyle = ground.patternColor;
+        for (let x = -this.groundOffset; x < this.canvas.width; x += ground.patternSize) {
+            this.ctx.fillRect(x, ground.y + 2, ground.patternSize / 2, 2);
         }
     }
     
-    renderPlayer() {
-        let playerSprite = null;
-        
-        if (this.player.isJumping || !this.player.isOnGround) {
-            playerSprite = spriteLoader.getSprite('player_jump');
-        } else {
-            const runSprite = this.playerAnimationFrame === 0 ? 'player_run1' : 'player_run2';
-            playerSprite = spriteLoader.getSprite(runSprite);
-        }
-        
-        if (playerSprite) {
-            this.ctx.drawImage(playerSprite, this.player.x, this.player.y, this.player.width, this.player.height);
-        } else {
-            // Fallback player rendering
-            this.ctx.fillStyle = GAME_CONFIG.colors.player;
-            this.ctx.fillRect(this.player.x, this.player.y, this.player.width, this.player.height);
-            
-            // Simple Mario-like details
-            this.ctx.fillStyle = '#FF0000'; // Red hat
-            this.ctx.fillRect(this.player.x + 5, this.player.y, this.player.width - 10, 8);
-            
-            this.ctx.fillStyle = '#0000FF'; // Blue shirt
-            this.ctx.fillRect(this.player.x + 8, this.player.y + 15, this.player.width - 16, 15);
-        }
-    }
-    
-    renderObstacles() {
-        this.obstacles.forEach(obstacle => {
-            const obstacleSprite = spriteLoader.getSprite(`obstacle_${obstacle.type}`);
-            
-            if (obstacleSprite) {
-                this.ctx.drawImage(obstacleSprite, obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+    drawClouds() {
+        this.clouds.forEach(cloud => {
+            if (cloud.sprite && cloud.sprite.complete) {
+                this.ctx.drawImage(cloud.sprite, cloud.x, cloud.y, cloud.width, cloud.height);
             } else {
-                // Fallback obstacle rendering
-                this.ctx.fillStyle = GAME_CONFIG.colors.obstacles;
-                
-                switch (obstacle.type) {
-                    case 'tavolo':
-                        // Table shape
-                        this.ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height - 10);
-                        this.ctx.fillRect(obstacle.x + 2, obstacle.y + obstacle.height - 10, 4, 10);
-                        this.ctx.fillRect(obstacle.x + obstacle.width - 6, obstacle.y + obstacle.height - 10, 4, 10);
-                        break;
-                    case 'pizza':
-                        // Triangle pizza slice
-                        this.ctx.fillStyle = '#FFD700';
-                        this.ctx.beginPath();
-                        this.ctx.moveTo(obstacle.x, obstacle.y + obstacle.height);
-                        this.ctx.lineTo(obstacle.x + obstacle.width, obstacle.y + obstacle.height);
-                        this.ctx.lineTo(obstacle.x + obstacle.width / 2, obstacle.y);
-                        this.ctx.closePath();
-                        this.ctx.fill();
-                        break;
-                    case 'mestolo':
-                        // Ladle shape
-                        this.ctx.fillStyle = '#8B4513';
-                        this.ctx.fillRect(obstacle.x, obstacle.y + obstacle.height / 2 - 2, obstacle.width - 8, 4);
-                        this.ctx.beginPath();
-                        this.ctx.arc(obstacle.x + obstacle.width - 8, obstacle.y + obstacle.height / 2, 8, 0, Math.PI * 2);
-                        this.ctx.fill();
-                        break;
-                    default:
-                        this.ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-                }
-            }
-        });
-    }
-    
-    renderPowerUps() {
-        this.powerUps.forEach(powerUp => {
-            // Render glow effect
-            this.ctx.save();
-            this.ctx.shadowColor = GAME_CONFIG.powerUps.types[0].glowColor;
-            this.ctx.shadowBlur = 10 * powerUp.glowIntensity;
-            
-            const powerUpSprite = spriteLoader.getSprite(`obstacle_${powerUp.type.replace('_powerup', '')}`);
-            
-            if (powerUpSprite) {
-                this.ctx.drawImage(powerUpSprite, powerUp.x, powerUp.y, powerUp.width, powerUp.height);
-            } else {
-                // Fallback power-up rendering
-                this.ctx.fillStyle = '#FFD700';
+                // Fallback cloud
+                this.ctx.fillStyle = GAME_CONFIG.colors.clouds;
                 this.ctx.beginPath();
-                this.ctx.moveTo(powerUp.x, powerUp.y + powerUp.height);
-                this.ctx.lineTo(powerUp.x + powerUp.width, powerUp.y + powerUp.height);
-                this.ctx.lineTo(powerUp.x + powerUp.width / 2, powerUp.y);
-                this.ctx.closePath();
+                this.ctx.arc(cloud.x + cloud.width/4, cloud.y + cloud.height/2, cloud.width/4, 0, Math.PI * 2);
+                this.ctx.arc(cloud.x + cloud.width/2, cloud.y + cloud.height/3, cloud.width/3, 0, Math.PI * 2);
+                this.ctx.arc(cloud.x + cloud.width*3/4, cloud.y + cloud.height/2, cloud.width/4, 0, Math.PI * 2);
                 this.ctx.fill();
             }
-            
-            this.ctx.restore();
         });
+    }
+    
+    reset() {
+        this.clouds = [];
+        this.groundOffset = 0;
+        this.initClouds();
+    }
+}
+
+// Distance meter class
+class DistanceMeter {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+    }
+    
+    draw(score, highScore) {
+        this.ctx.save();
+        this.ctx.fillStyle = GAME_CONFIG.colors.text;
+        this.ctx.font = 'bold 14px monospace';
+        this.ctx.textAlign = 'right';
+        
+        const xPos = this.canvas.width - 10;
+        const yPos = 25;
+        
+        // High score
+        this.ctx.fillText(`HI ${highScore.toString().padStart(5, '0')}`, xPos - 80, yPos);
+        
+        // Current score
+        this.ctx.fillText(score.toString().padStart(5, '0'), xPos, yPos);
+        
+        this.ctx.restore();
+    }
+}
+
+// Game Over Panel class
+class GameOverPanel {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+    }
+    
+    draw(score) {
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        
+        // Semi-transparent overlay
+        this.ctx.save();
+        this.ctx.fillStyle = GAME_CONFIG.colors.gameOver;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Game over text
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 20px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('GAME OVER', centerX, centerY - 30);
+        
+        this.ctx.font = '14px Arial';
+        this.ctx.fillText(`Punteggio: ${score}`, centerX, centerY);
+        
+        this.ctx.font = '12px Arial';
+        if (GameUtils.isMobile()) {
+            this.ctx.fillText('Tocca per ricominciare', centerX, centerY + 30);
+        } else {
+            this.ctx.fillText('Premi SPAZIO o R per ricominciare', centerX, centerY + 30);
+        }
+        
+        this.ctx.restore();
     }
 }
 
 // Initialize game when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.gameEngine = new GameEngine();
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🦕 [GAME] DOM loaded, initializing Mario game...');
+    
+    // Small delay to ensure all elements are ready
+    setTimeout(async () => {
+        window.game = new DinosaurGame();
+        
+        // Setup global event handlers
+        const restartBtn = document.getElementById('restartBtn');
+        const saveScoreBtn = document.getElementById('save-score-btn');
+        const skipSaveBtn = document.getElementById('skip-save-btn');
+        const leaderboardBtn = document.getElementById('leaderboard-btn');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const closeLeaderboard = document.querySelector('.close-leaderboard');
+        const useRandomNameBtn = document.getElementById('use-random-name');
+        
+        if (restartBtn) {
+            restartBtn.addEventListener('click', () => {
+                if (window.game) {
+                    window.game.restart();
+                }
+            });
+        }
+        
+        if (saveScoreBtn) {
+            saveScoreBtn.addEventListener('click', () => {
+                const playerName = document.getElementById('player-name').value;
+                const finalScore = parseInt(document.getElementById('finalScore').textContent);
+                if (window.game && window.game.saveScore(playerName, finalScore)) {
+                    // Score saved successfully
+                }
+            });
+        }
+        
+        if (skipSaveBtn) {
+            skipSaveBtn.addEventListener('click', () => {
+                const saveScoreDiv = document.getElementById('save-score-section');
+                if (saveScoreDiv) {
+                    saveScoreDiv.style.display = 'none';
+                }
+            });
+        }
+        
+        if (useRandomNameBtn) {
+            useRandomNameBtn.addEventListener('click', () => {
+                const playerNameInput = document.getElementById('player-name');
+                if (playerNameInput && playerNameInput.dataset.randomName) {
+                    playerNameInput.value = playerNameInput.dataset.randomName;
+                }
+            });
+        }
+        
+        if (leaderboardBtn) {
+            leaderboardBtn.addEventListener('click', () => {
+                if (window.game) {
+                    window.game.showLeaderboard();
+                }
+            });
+        }
+        
+        if (playAgainBtn) {
+            playAgainBtn.addEventListener('click', () => {
+                const leaderboardModal = document.getElementById('leaderboard-modal');
+                if (leaderboardModal) {
+                    leaderboardModal.style.display = 'none';
+                }
+                if (window.game) {
+                    window.game.restart();
+                }
+            });
+        }
+        
+        if (closeLeaderboard) {
+            closeLeaderboard.addEventListener('click', () => {
+                const leaderboardModal = document.getElementById('leaderboard-modal');
+                if (leaderboardModal) {
+                    leaderboardModal.style.display = 'none';
+                }
+            });
+        }
+        
+        // Allow Enter key to save score
+        const playerNameInput = document.getElementById('player-name');
+        if (playerNameInput) {
+            playerNameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    saveScoreBtn?.click();
+                }
+            });
+        }
+        
+        // Make restart function globally available for backward compatibility
+        window.restartGame = () => {
+            if (window.game) {
+                window.game.restart();
+            }
+        };
+        
+        console.log('🦕 [GAME] Mario game ready!');
+    }, 100);
 });
 
-export default GameEngine;
+// Export for testing
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = DinosaurGame;
+}

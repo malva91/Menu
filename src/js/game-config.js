@@ -376,14 +376,13 @@ export const GameUtils = {
     },
     // Mobile detection
     isMobile() {
-        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               window.innerWidth <= 768;
     },
     
     // Orientation detection
     isPortrait() {
-        return window.screen?.orientation ? 
-               window.screen.orientation.angle === 0 || window.screen.orientation.angle === 180 :
-               window.innerHeight > window.innerWidth;
+        return window.innerHeight > window.innerWidth;
     },
     
     // Check if device supports orientation
