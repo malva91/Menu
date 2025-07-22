@@ -44,6 +44,10 @@ class AdminPanel {
         const password = document.getElementById('admin-password').value;
         const errorElement = document.getElementById('password-error');
         
+        // Clear previous errors
+        errorElement.textContent = '';
+        errorElement.classList.remove('show');
+        
         if (password === 'barrino2025') {
             sessionStorage.setItem('admin-logged-in', 'true');
             this.isLoggedIn = true;
@@ -55,6 +59,9 @@ class AdminPanel {
         } else {
             errorElement.textContent = 'Password non corretta';
             errorElement.classList.add('show');
+            
+            // Clear password field
+            document.getElementById('admin-password').value = '';
         }
     }
 

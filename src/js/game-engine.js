@@ -176,13 +176,25 @@ class GameEngine {
         const continuePortraitBtn = document.getElementById('continue-portrait');
         
         const checkOrientation = () => {
-            if (GameUtils.isPortrait() && !this.isPortraitAllowed) {
-                orientationNotice?.classList.remove('hidden');
-                gameContainer?.classList.remove('portrait-allowed');
+            const isPortrait = GameUtils.isPortrait();
+            
+            if (isPortrait && !this.isPortraitAllowed) {
+                if (orientationNotice) {
+                    orientationNotice.classList.remove('hidden');
+                    orientationNotice.style.display = 'flex';
+                }
+                if (gameContainer) {
+                    gameContainer.classList.remove('portrait-allowed');
+                }
             } else {
-                orientationNotice?.classList.add('hidden');
-                if (this.isPortraitAllowed) {
-                    gameContainer?.classList.add('portrait-allowed');
+                if (orientationNotice) {
+                    orientationNotice.classList.add('hidden');
+                    orientationNotice.style.display = 'none';
+                }
+                if (gameContainer) {
+                    if (this.isPortraitAllowed || !isPortrait) {
+                        gameContainer.classList.add('portrait-allowed');
+                    }
                 }
             }
         };
@@ -190,8 +202,12 @@ class GameEngine {
         // Continue in portrait button
         continuePortraitBtn?.addEventListener('click', () => {
             this.isPortraitAllowed = true;
+            localStorage.setItem('game-portrait-allowed', 'true');
             checkOrientation();
         });
+        
+        // Load portrait preference
+        this.isPortraitAllowed = localStorage.getItem('game-portrait-allowed') === 'true';
         
         // Check orientation on load and resize
         checkOrientation();
@@ -477,21 +493,28 @@ class GameEngine {
     showGameOverScreen() {
         const gameOverScreen = document.getElementById('gameOver');
         const finalScoreElement = document.getElementById('finalScore');
+        const saveScoreSection = document.getElementById('save-score-section');
+        const defaultButtons = document.getElementById('default-buttons');
         
         if (finalScoreElement) {
             finalScoreElement.textContent = Math.floor(this.score);
         }
         
         // Check if it's a new high score
-        if (this.score >= this.highScore) {
+        if (this.score >= this.highScore && this.score > 0) {
             // Show save score section
-            document.getElementById('save-score-section').style.display = 'block';
-            document.getElementById('default-buttons').style.display = 'none';
+            if (saveScoreSection) {
+                saveScoreSection.style.display = 'block';
+            }
+            if (defaultButtons) {
+                defaultButtons.style.display = 'none';
+            }
             
             // Generate random name suggestion
             const randomName = getRandomPlayerName();
             const randomNameText = document.getElementById('random-name-text');
             const useRandomNameBtn = document.getElementById('use-random-name');
+            const playerNameInput = document.getElementById('player-name');
             
             if (randomNameText) {
                 randomNameText.textContent = 'Suggerimento: ' + randomName;
@@ -499,12 +522,203 @@ class GameEngine {
             
             if (useRandomNameBtn) {
                 useRandomNameBtn.onclick = () => {
-                    document.getElementById('player-name').value = randomName;
+                    if (playerNameInput) {
+                        playerNameInput.value = randomName;
+                    }
                 };
+            }
+            
+            // Setup save score button
+            const saveScoreBtn = document.getElementById('save-score-btn');
+            const skipSaveBtn = document.getElementById('skip-save-btn');
+            
+            if (saveScoreBtn) {
+                saveScoreBtn.onclick = () => this.savePlayerScore();
+            }
+            
+            if (skipSaveBtn) {
+                skipSaveBtn.onclick = () => this.skipSaveScore();
+            }
+        } else {
+            // Show default buttons
+            if (saveScoreSection) {
+                saveScoreSection.style.display = 'none';
+            }
+            if (defaultButtons) {
+                defaultButtons.style.display = 'flex';
             }
         }
         
+        // Setup restart and leaderboard buttons
+        const restartBtn = document.getElementById('restartBtn');
+        const leaderboardBtn = document.getElementById('leaderboard-btn');
+        
+        if (restartBtn) {
+            restartBtn.onclick = () => this.restartGame();
+        }
+        
+        if (leaderboardBtn) {
+            leaderboardBtn.onclick = () => this.showLeaderboard();
+        }
+        
         gameOverScreen?.classList.add('show');
+        
+        // Load and display leaderboard
+        this.loadLeaderboard();
+    }
+    
+    savePlayerScore() {
+        const playerNameInput = document.getElementById('player-name');
+        const playerName = playerNameInput?.value.trim() || 'Giocatore Anonimo';
+        
+        // Save score to localStorage
+        const scores = this.getStoredScores();
+        const newScore = {
+            name: playerName,
+            score: Math.floor(this.score),
+            date: new Date().toLocaleDateString('it-IT')
+        };
+        
+        scores.push(newScore);
+        scores.sort((a, b) => b.score - a.score);
+        scores.splice(10); // Keep only top 10
+        
+        localStorage.setItem('barrino-game-scores', JSON.stringify(scores));
+        
+        // Hide save section and show default buttons
+        document.getElementById('save-score-section').style.display = 'none';
+        document.getElementById('default-buttons').style.display = 'flex';
+        
+        // Update leaderboard display
+        this.loadLeaderboard();
+        
+        console.log('🎮 [GAME] Score saved:', newScore);
+    }
+    
+    skipSaveScore() {
+        // Hide save section and show default buttons
+        document.getElementById('save-score-section').style.display = 'none';
+        document.getElementById('default-buttons').style.display = 'flex';
+    }
+    
+    showLeaderboard() {
+        const leaderboardModal = document.getElementById('leaderboard-modal');
+        if (leaderboardModal) {
+            leaderboardModal.classList.remove('hidden');
+            leaderboardModal.style.display = 'flex';
+            this.loadLeaderboardModal();
+        }
+        
+        // Setup close button
+        const closeBtn = document.querySelector('.close-leaderboard');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.hideLeaderboard();
+        }
+        
+        // Setup play again button
+        const playAgainBtn = document.getElementById('play-again-btn');
+        if (playAgainBtn) {
+            playAgainBtn.onclick = () => {
+                this.hideLeaderboard();
+                this.restartGame();
+            };
+        }
+    }
+    
+    hideLeaderboard() {
+        const leaderboardModal = document.getElementById('leaderboard-modal');
+        if (leaderboardModal) {
+            leaderboardModal.classList.add('hidden');
+            leaderboardModal.style.display = 'none';
+        }
+    }
+    
+    getStoredScores() {
+        try {
+            const stored = localStorage.getItem('barrino-game-scores');
+            return stored ? JSON.parse(stored) : [];
+        } catch (error) {
+            console.error('🎮 [GAME] Error loading scores:', error);
+            return [];
+        }
+    }
+    
+    loadLeaderboard() {
+        const leaderboardList = document.getElementById('game-leaderboard-list');
+        const noScoresElement = document.querySelector('.no-scores-game');
+        
+        if (!leaderboardList) return;
+        
+        const scores = this.getStoredScores();
+        
+        if (scores.length === 0) {
+            if (noScoresElement) {
+                noScoresElement.style.display = 'block';
+            }
+            leaderboardList.innerHTML = '<li class="no-scores-game">Nessun punteggio salvato</li>';
+            return;
+        }
+        
+        if (noScoresElement) {
+            noScoresElement.style.display = 'none';
+        }
+        
+        leaderboardList.innerHTML = scores.map((score, index) => {
+            const rank = index + 1;
+            let rankClass = '';
+            if (rank === 1) rankClass = 'top-1';
+            else if (rank === 2) rankClass = 'top-2';
+            else if (rank === 3) rankClass = 'top-3';
+            
+            return `
+                <li class="game-leaderboard-entry ${rankClass}">
+                    <span class="rank">${rank}</span>
+                    <span class="name">${score.name}</span>
+                    <span class="score">${score.score}</span>
+                    <span class="date">${score.date}</span>
+                </li>
+            `;
+        }).join('');
+    }
+    
+    loadLeaderboardModal() {
+        const leaderboardList = document.getElementById('leaderboard-list');
+        const noScoresModal = document.getElementById('no-scores-modal');
+        
+        if (!leaderboardList) return;
+        
+        const scores = this.getStoredScores();
+        
+        if (scores.length === 0) {
+            if (noScoresModal) {
+                noScoresModal.classList.remove('hidden');
+                noScoresModal.style.display = 'block';
+            }
+            leaderboardList.innerHTML = '';
+            return;
+        }
+        
+        if (noScoresModal) {
+            noScoresModal.classList.add('hidden');
+            noScoresModal.style.display = 'none';
+        }
+        
+        leaderboardList.innerHTML = scores.map((score, index) => {
+            const rank = index + 1;
+            let rankClass = '';
+            if (rank === 1) rankClass = 'top-1';
+            else if (rank === 2) rankClass = 'top-2';
+            else if (rank === 3) rankClass = 'top-3';
+            
+            return `
+                <li class="leaderboard-entry ${rankClass}">
+                    <span class="rank">${rank}</span>
+                    <span class="name">${score.name}</span>
+                    <span class="score">${score.score}</span>
+                    <span class="date">${score.date}</span>
+                </li>
+            `;
+        }).join('');
     }
     
     loadHighScore() {
