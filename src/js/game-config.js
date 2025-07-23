@@ -6,16 +6,15 @@ export const GAME_CONFIG = {
         height: 180
     },
     
-    // Player settings (Mario con mestolo)
     player: {
         x: 50,
-        y: 140,
+        y: 130,
         width: 40,
         height: 40,
         jumpPower: 15,
         gravity: 0.8,
         color: '#8B4513',
-        groundY: 140, // Y position when on ground
+        groundY: 130, // Y position when on ground
         // Sprite settings per animazioni
         sprites: {
             running: ['src/assets/images/camminata1.png', 'src/assets/images/camminata2.png'],
@@ -42,42 +41,42 @@ export const GAME_CONFIG = {
         types: [
             {
                 id: 'tavolo',
-                width: 30,
-                height: 40,
-                y: 140,
+                width: 50,
+                height: 60,
+                y: 110,
                 sprite: 'src/assets/images/tavolo.png',
                 collisionBoxes: [
                     { x: 2, y: 2, width: 26, height: 36 }
                 ]
             },
             {
-                id: 'pizza',
+                id: 'cartoni',
                 width: 25,
                 height: 35,
-                y: 145,
-                sprite: 'src/assets/images/pizza.png',
+                y: 135,
+                sprite: 'src/assets/images/cartoni.png',
                 collisionBoxes: [
                     { x: 2, y: 2, width: 21, height: 31 }
                 ]
             },
             {
-                id: 'mestolo',
+                id: 'italia',
                 width: 35,
-                height: 30,
-                y: [70, 110], // Due altezze diverse per ostacoli volanti
-                sprite: 'src/assets/images/mestolo.png',
+                height: 40,
+                y: [50, 60], // Due altezze diverse per ostacoli volanti
+                sprite: 'src/assets/images/italia.png',
                 canFly: true,
-                flySpeed: 0.05, // Velocità movimento verticale (molto più lenta)
-                flyAmplitude: 20, // Ampiezza movimento
+                flySpeed: 0.005, // Velocità movimento verticale (molto più lenta)
+                flyAmplitude: 10, // Ampiezza movimento
                 collisionBoxes: [
                     { x: 2, y: 2, width: 31, height: 26 }
                 ]
             },
             {
                 id: 'caffe',
-                width: 28,
-                height: 35,
-                y: 145,
+                width: 35,
+                height: 40,
+                y: 130,
                 sprite: 'src/assets/images/caffe.png',
                 collisionBoxes: [
                     { x: 2, y: 2, width: 24, height: 31 }
@@ -85,9 +84,9 @@ export const GAME_CONFIG = {
             },
             {
                 id: 'vino',
-                width: 22,
+                width: 40,
                 height: 38,
-                y: 142,
+                y: 135,
                 sprite: 'src/assets/images/vino.png',
                 collisionBoxes: [
                     { x: 2, y: 2, width: 18, height: 34 }
@@ -95,9 +94,9 @@ export const GAME_CONFIG = {
             },
             {
                 id: 'statua',
-                width: 32,
+                width: 40,
                 height: 45,
-                y: 135,
+                y: 127,
                 sprite: 'src/assets/images/statua.png',
                 collisionBoxes: [
                     { x: 3, y: 3, width: 26, height: 39 }
@@ -110,21 +109,21 @@ export const GAME_CONFIG = {
         baseSpawnDelay: 1500, // milliseconds
         minSpawnDelay: 600,    // milliseconds
         flyingObstacleChance: 0.3, // 30% chance for flying obstacles
-        powerUpChance: 0.15 // 15% chance for power-ups
+        powerUpChance: 0.05 // 15% chance for power-ups
     },
     
     // Power-up settings
     powerUps: {
         types: [
             {
-                id: 'pizza_powerup',
+                id: 'PizzaPowerUp',
                 width: 20, // Più piccolo degli ostacoli
                 height: 20,
-                y: [80, 120, 150], // Tre altezze diverse
-                sprite: 'src/assets/images/pizza.png',
+                y: [80, 120, 140], // Tre altezze diverse
+                sprite: 'src/assets/images/PizzaPowerUp.png',
                 points: 100,
                 glowColor: '#FFD700', // Colore bagliore dorato
-                glowIntensity: 0.8,
+                glowIntensity: 0.4,
                 collisionBoxes: [
                     { x: 2, y: 2, width: 16, height: 16 }
                 ]
@@ -133,7 +132,7 @@ export const GAME_CONFIG = {
         baseSpawnDelay: 3000, // milliseconds
         minSpawnDelay: 2000,
         glowAnimation: {
-            speed: 0.05, // Velocità animazione bagliore
+            speed: 0.1, // Velocità animazione bagliore
             minIntensity: 0.3,
             maxIntensity: 1.0
         }
@@ -151,7 +150,7 @@ export const GAME_CONFIG = {
         minSpeed: 0.3,
         maxSpeed: 1.5,
         color: '#E0E0E0',
-        sprite: 'src/assets/images/novele.png'
+        sprite: 'src/assets/images/nuvole.png'
     },
     
     // Game physics
