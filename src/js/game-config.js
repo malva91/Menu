@@ -116,7 +116,7 @@ export const GAME_CONFIG = {
     powerUps: {
         types: [
             {
-                id: 'PizzaPowerUp',
+                id: 'pizza',
                 width: 20, // Più piccolo degli ostacoli
                 height: 20,
                 y: [80, 120, 140], // Tre altezze diverse
@@ -298,6 +298,13 @@ export async function initializeSprites() {
     GAME_CONFIG.obstacles.types.forEach((obstacleType) => {
         loadPromises.push(
             spriteLoader.loadSprite(`obstacle_${obstacleType.id}`, obstacleType.sprite)
+        );
+    });
+    
+    // Load power-up sprites
+    GAME_CONFIG.powerUps.types.forEach((powerUpType) => {
+        loadPromises.push(
+            spriteLoader.loadSprite(`powerup_${powerUpType.id}`, powerUpType.sprite)
         );
     });
     

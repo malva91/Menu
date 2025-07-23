@@ -865,12 +865,30 @@ class GameEngine {
             this.ctx.restore();
             
             // Draw power-up
-            const sprite = spriteLoader.getSprite(`obstacle_${powerUp.id.replace('_powerup', '')}`);
+            const sprite = spriteLoader.getSprite(`powerup_${powerUp.id}`);
+            
             if (sprite) {
                 this.ctx.drawImage(sprite, powerUp.x, powerUp.y, powerUp.width, powerUp.height);
             } else {
-                this.ctx.fillStyle = powerUp.glowColor;
+                // Fallback - draw pizza slice
+                this.ctx.fillStyle = '#FFD700';
                 this.ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
+                
+                // Draw pizza triangle
+                this.ctx.fillStyle = '#FF6B35';
+                this.ctx.beginPath();
+                this.ctx.moveTo(powerUp.x + powerUp.width/2, powerUp.y + 2);
+                this.ctx.lineTo(powerUp.x + 2, powerUp.y + powerUp.height - 2);
+                this.ctx.lineTo(powerUp.x + powerUp.width - 2, powerUp.y + powerUp.height - 2);
+                this.ctx.closePath();
+                this.ctx.fill();
+                
+                // Add pepperoni dots
+                this.ctx.fillStyle = '#8B0000';
+                this.ctx.beginPath();
+                this.ctx.arc(powerUp.x + powerUp.width/2 - 3, powerUp.y + powerUp.height/2, 1, 0, Math.PI * 2);
+                this.ctx.arc(powerUp.x + powerUp.width/2 + 3, powerUp.y + powerUp.height/2, 1, 0, Math.PI * 2);
+                this.ctx.fill();
             }
         });
     }
