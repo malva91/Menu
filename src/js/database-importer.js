@@ -10,17 +10,17 @@ class DatabaseImporter {
     async importFromJSON(jsonData) {
         console.log('📥 [IMPORTER] Starting database import...');
         this.jsonData = jsonData;
-        
+
         try {
             // 1. Processa i dati di default (products, categories)
             this.processDefaultData();
-            
+
             // 2. Processa le traduzioni per ogni lingua
             this.processLanguageData();
-            
+
             // 3. Salva tutto nel database
             await this.saveToDatabase();
-            
+
             console.log('📥 [IMPORTER] Import completed successfully!');
             return true;
         } catch (error) {
@@ -31,7 +31,7 @@ class DatabaseImporter {
 
     processDefaultData() {
         console.log('📥 [IMPORTER] Processing default data...');
-        
+
         // Processa prodotti - rimuove le traduzioni e mantiene solo i dati strutturali
         this.defaultData.products = this.jsonData.database.products.map(product => ({
             id: product.id,
@@ -72,7 +72,7 @@ class DatabaseImporter {
 
     processLanguageData() {
         console.log('📥 [IMPORTER] Processing language data...');
-        
+
         // Estrai le lingue disponibili dalle traduzioni
         const languagesFromTranslations = Object.keys(this.jsonData.database.translations);
         const languagesFromProducts = new Set();
@@ -113,7 +113,7 @@ class DatabaseImporter {
 
     processLanguage(languageCode) {
         console.log(`📥 [IMPORTER] Processing language: ${languageCode}`);
-        
+
         const langData = {
             tagLingua: this.getLanguageInfo(languageCode),
             allergeni: this.getAllergenTranslations(languageCode),
@@ -125,81 +125,45 @@ class DatabaseImporter {
         return langData;
     }
 
-            
-            // Legend
     getLanguageInfo(languageCode) {
         const languagesInfo = this.jsonData.database.translations._languages;
-        
+
         if (languagesInfo && languagesInfo[languageCode]) {
             return languagesInfo[languageCode];
-            
-            // Disclaimers
         }
 
-            
-            // Reviews
         // Fallback per lingue non definite
         const defaultFlags = {
             'it': '🇮🇹',
-            
-            // Language
             'en': '🇬🇧',
-            
-            // Game Base
             'fr': '🇫🇷',
             'de': '🇩🇪',
             'es': '🇪🇸',
             'pt': '🇵🇹',
             'ru': '🇷🇺',
-            
-            // Game Instructions
             'zh': '🇨🇳',
             'ja': '🇯🇵',
             'ar': '🇸🇦'
         };
 
-            
-            // Game UI
         const defaultNames = {
             'it': 'Italiano',
             'en': 'English',
             'fr': 'Français',
             'de': 'Deutsch',
-            
-            // Game Over
             'es': 'Español',
             'pt': 'Português',
             'ru': 'Русский',
-            play_again: 'Gioca Ancora',
-            
-            // Leaderboard
             'zh': '中文',
             'ja': '日本語',
             'ar': 'العربية'
         };
-            no_scores_modal_text: 'Nessun punteggio salvato',
-            
-            // Score Saving
 
         return {
-            // UI Base
             active: true,
-            
-            // Mobile Orientation
             flag: defaultFlags[languageCode] || '🌐',
             direction: languageCode === 'ar' ? 'rtl' : 'ltr',
-            orientation_note: 'Il gioco è ottimizzato per la modalità landscape',
-            continue_portrait_text: 'Continua in verticale',
-            
-            // Random Names
-            random_name_suggestion: 'Suggerimento:',
-            use_suggestion: 'Usa questo',
-            
-            // Tags/Characteristics
-            vegetariano: 'Vegetariano',
-            maiale: 'Maiale',
-            pollo: 'Pollo',
-            congelato: 'Prodotto congelato'
+            name: defaultNames[languageCode] || languageCode.toUpperCase()
         };
     }
 
@@ -210,7 +174,7 @@ class DatabaseImporter {
         const allergens = {};
         const allergenKeys = [
             'glutine', 'crostacei', 'uova', 'pesce', 'arachidi', 'soia', 'latte',
-            'frutta_guscio', 'sedano', 'senape', 'sesamo', 'solfiti', 'lupini', 
+            'frutta_guscio', 'sedano', 'senape', 'sesamo', 'solfiti', 'lupini',
             'molluschi', 'alcol'
         ];
 
@@ -231,41 +195,41 @@ class DatabaseImporter {
         const textKeys = [
             // UI Base
             'search_placeholder', 'loading', 'no_results', 'no_results_desc',
-            
+
             // Legend
             'legend_title', 'legend_explanation', 'legend_allergens_title', 'legend_characteristics_title',
             'filter_allergens',
-            
+
             // Disclaimers
             'disclaimer_shared', 'disclaimer_service',
-            
+
             // Reviews
             'review_title', 'review_subtitle', 'review_button',
-            
+
             // Language
             'language_selector_title',
-            
+
             // Game Base
             'game_title', 'game_subtitle', 'game_invitation_title', 'game_invitation_subtitle', 'game_button_text',
-            
+
             // Game Instructions
             'instructions_title', 'instruction_1', 'instruction_2', 'instruction_3', 'instruction_4',
-            
+
             // Game UI
             'score_label', 'high_score_label', 'speed_label', 'game_controls_text', 'back_to_menu_text',
-            
+
             // Game Over
             'game_over_title', 'final_score_text', 'restart_text', 'play_again',
-            
+
             // Leaderboard
             'leaderboard_text', 'leaderboard_title', 'leaderboard_main_title', 'no_scores_text', 'no_scores_modal_text',
-            
+
             // Score Saving
             'save_score_label', 'player_name_placeholder', 'save_score', 'skip_save',
-            
+
             // Mobile Orientation
             'orientation_title', 'orientation_message', 'orientation_note', 'continue_portrait_text',
-            
+
             // Random Names
             'random_name_suggestion', 'use_suggestion'
         ];
@@ -289,7 +253,7 @@ class DatabaseImporter {
 
     getProductTranslations(languageCode) {
         const products = {};
-        
+
         this.jsonData.database.products.forEach(product => {
             if (product.translations && product.translations[languageCode]) {
                 products[product.id] = {
@@ -310,7 +274,7 @@ class DatabaseImporter {
 
     getCategoryTranslations(languageCode) {
         const categories = {};
-        
+
         this.jsonData.database.categories.forEach(category => {
             if (category.translations && category.translations[languageCode]) {
                 categories[category.id] = category.translations[languageCode];
@@ -325,7 +289,7 @@ class DatabaseImporter {
 
     async saveToDatabase() {
         console.log('📥 [IMPORTER] Saving to database...');
-        
+
         if (!window.firebaseService?.isInitialized) {
             throw new Error('Firebase service not initialized');
         }

@@ -44,16 +44,19 @@ class AdminPanel {
         const password = document.getElementById('admin-password').value;
         const errorElement = document.getElementById('password-error');
         const submitBtn = document.getElementById('login-submit-btn');
-        
+
         // Clear previous errors
         errorElement.textContent = '';
         errorElement.classList.remove('show');
-        
+
         // Disable submit button during login
         submitBtn.disabled = true;
         submitBtn.textContent = 'Accesso...';
-        
-        if (password === 'barrino2025') {
+
+        // Import ADMIN_PASSWORD from constants
+        const { ADMIN_PASSWORD } = await import('../utils/constants.js');
+
+        if (password === ADMIN_PASSWORD) {
             try {
                 sessionStorage.setItem('admin-logged-in', 'true');
                 this.isLoggedIn = true;
@@ -164,13 +167,57 @@ class AdminPanel {
         document.getElementById('cancel-product')?.addEventListener('click', () => {
             document.getElementById('product-modal').classList.add('hidden');
         });
+
+        // Admin filters
+        document.getElementById('category-filter')?.addEventListener('change', () => {
+            this.applyFilters();
+        });
+
+        document.getElementById('visibility-filter')?.addEventListener('change', () => {
+            this.applyFilters();
+        });
+
+        document.getElementById('admin-search')?.addEventListener('input', (e) => {
+            this.searchProducts(e.target.value);
+        });
+
+        // Export form
+        document.getElementById('export-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.exportLanguage();
+        });
+
+        document.getElementById('cancel-export')?.addEventListener('click', () => {
+            document.getElementById('export-modal').classList.add('hidden');
+        });
     }
 
     // Products View
     showProductsView() {
         this.currentView = 'products';
+        this.populateFilters();
         this.renderProductsTable();
         this.updateStats();
+    }
+
+    populateFilters() {
+        // Popola il filtro categorie
+        const categoryFilter = document.getElementById('category-filter');
+        if (categoryFilter && this.defaultData) {
+            const categories = this.defaultData.categories || [];
+            const currentValue = categoryFilter.value;
+
+            categoryFilter.innerHTML = '<option value="">Tutte le categorie</option>' +
+                categories.map(category => {
+                    const categoryName = this.languageData?.categories?.[category.id] || category.id;
+                    return `<option value="${category.id}">${categoryName}</option>`;
+                }).join('');
+
+            // Ripristina la selezione precedente
+            if (currentValue) {
+                categoryFilter.value = currentValue;
+            }
+        }
     }
 
     renderProductsTable() {
@@ -315,6 +362,36 @@ class AdminPanel {
         }
     }
 
+    editProduct(productId) {
+        const product = this.defaultData.products.find(p => p.id === productId);
+        if (!product) return;
+
+        const modal = document.getElementById('product-modal');
+        const title = document.getElementById('product-modal-title');
+
+        title.textContent = 'Modifica Prodotto';
+
+        // Popola il form con i dati del prodotto
+        document.getElementById('product-id').value = product.id;
+        document.getElementById('product-id').readOnly = true;
+        document.getElementById('product-category').value = product.category;
+        document.getElementById('product-price').value = product.price;
+        document.getElementById('product-visible').checked = product.visible;
+
+        // Seleziona allergeni
+        document.querySelectorAll('[data-allergen]').forEach(checkbox => {
+            checkbox.checked = product.allergens.includes(checkbox.dataset.allergen);
+        });
+
+        // Seleziona tags
+        document.querySelectorAll('[data-tag]').forEach(checkbox => {
+            checkbox.checked = product.tags.includes(checkbox.dataset.tag);
+        });
+
+        this.populateCategorySelect();
+        modal.classList.remove('hidden');
+    }
+
     async deleteProduct(productId) {
         if (!confirm('Sei sicuro di voler eliminare questo prodotto?')) return;
 
@@ -328,6 +405,82 @@ class AdminPanel {
             console.error('⚙️ [ADMIN] Error deleting product:', error);
             this.showMessage('Errore nell\'eliminazione del prodotto: ' + error.message, 'error');
         }
+    }
+
+    applyFilters() {
+        const categoryFilter = document.getElementById('category-filter')?.value;
+        const visibilityFilter = document.getElementById('visibility-filter')?.value;
+
+        let filteredProducts = this.defaultData.products || [];
+
+        if (categoryFilter) {
+            filteredProducts = filteredProducts.filter(p => p.category === categoryFilter);
+        }
+
+        if (visibilityFilter === 'visible') {
+            filteredProducts = filteredProducts.filter(p => p.visible);
+        } else if (visibilityFilter === 'hidden') {
+            filteredProducts = filteredProducts.filter(p => !p.visible);
+        }
+
+        this.renderFilteredProducts(filteredProducts);
+    }
+
+    searchProducts(searchTerm) {
+        const term = searchTerm.toLowerCase();
+        if (!term) {
+            this.renderProductsTable();
+            return;
+        }
+
+        const filteredProducts = this.defaultData.products.filter(product => {
+            const productName = this.languageData?.products?.[product.id]?.name || product.id;
+            return productName.toLowerCase().includes(term) || product.id.toLowerCase().includes(term);
+        });
+
+        this.renderFilteredProducts(filteredProducts);
+    }
+
+    renderFilteredProducts(products) {
+        const tbody = document.getElementById('products-table-body');
+        if (!tbody) return;
+
+        if (products.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Nessun prodotto trovato</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = products.map(product => {
+            const productName = this.languageData?.products?.[product.id]?.name || product.id;
+            const categoryName = this.languageData?.categories?.[product.category] || product.category;
+
+            return `
+                <tr>
+                    <td class="product-name">${productName}</td>
+                    <td class="product-category">${categoryName}</td>
+                    <td class="product-price">€${product.price.toFixed(2)}</td>
+                    <td class="product-allergens">
+                        ${product.allergens.map(a => this.getAllergenEmoji(a)).join(' ')}
+                    </td>
+                    <td>
+                        <div class="visibility-toggle">
+                            <input type="checkbox" ${product.visible ? 'checked' : ''}
+                                   onchange="adminPanel.toggleProductVisibility('${product.id}', this.checked)">
+                        </div>
+                    </td>
+                    <td>
+                        <div class="table-actions">
+                            <button class="btn-icon edit" onclick="adminPanel.editProduct('${product.id}')" title="Modifica">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-icon delete" onclick="adminPanel.deleteProduct('${product.id}')" title="Elimina">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
 
     // Translations Management
